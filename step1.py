@@ -63,13 +63,14 @@ class WexAnalyzer:
 
     def create_authorizations_and_associations(self):
         value = list()
+
         for zone in self.zones:
             links = self.root.data['hosted-zone-associations'][zone]
             auths = self.root.data['vpc-association-authorizations'][zone]
             for region in self.regions:
                 for vpc in [
-                        i['VpcId']
-                        for i in self.node.data['vpcs'][region]
+                        vpc['VpcId']
+                        for vpc in self.node.data['vpcs'][region]
                         ]:
                     create_link = True
 
@@ -125,9 +126,10 @@ args = parser.parse_args()
 
 print('#!/bin/bash -ex\n\n')
 
-root = WexAccount.WexAccount(args.root).load()
-node = WexAccount.WexAccount(args.node).load()
+root = WexAccount.WexAccount(args.root)
+node = WexAccount.WexAccount(args.node)
 
 analyzer = WexAnalyzer(args, root, node)
+
 analyzer.cleanup_authorizations()
 analyzer.create_authorizations_and_associations()
