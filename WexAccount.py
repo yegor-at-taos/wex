@@ -4,6 +4,7 @@ import json
 import os
 import re
 import tempfile
+import logging
 
 system_cleanup = set([
         'ResponseMetadata',
@@ -12,6 +13,7 @@ system_cleanup = set([
         'MaxItems',
         'Marker',
         'NextMarker',
+        'NextToken',
         ])
 
 aws = {
@@ -47,6 +49,13 @@ aws = {
             'service': 'ec2',
             'command': 'describe_vpcs',
             },
+        'availability-zones': {
+            'dep': [
+                'vpcs',
+                ],
+            'service': 'ec2',
+            'command': 'describe_availability_zones',
+            },
         'subnets': {
             'service': 'ec2',
             'command': 'describe_subnets',
@@ -78,14 +87,7 @@ aws = {
                 'me-south-1',
                 ],
             },
-        'availability-zones': {
-            'dep': [
-                'vpcs',
-                ],
-            'service': 'ec2',
-            'command': 'describe_availability_zones',
-            },
-        'list-resolver-rules': {
+        'resolver-rules': {
             'dep': [
                 'vpcs',
                 ],
@@ -96,7 +98,7 @@ aws = {
                 'me-south-1',
                 ],
             },
-        'list-resolver-rule-associations': {
+        'resolver-rule-associations': {
             'dep': [
                 'vpcs',
                 ],
@@ -112,6 +114,18 @@ aws = {
 
 class WexAccount:
     def __init__(self, profile):
+        self.logger = logging.getLogger('WexAnalyzer')
+        self.logger.setLevel(logging.DEBUG)
+
+
+        formatter = logging.Formatter(
+                '%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+
+        ch = logging.StreamHandler()
+        ch.setLevel(logging.WARNING)
+
+        self.logger.addHandler(ch)
+
         self.profile = profile
         self.data = dict([
             [name, dict()]
@@ -137,7 +151,7 @@ class WexAccount:
     def aws_items(self, args):
         value = list()
 
-        print(args)
+        self.logger.info(f'loading {args} ..')
 
         item, region = args.pop('Item'), args.pop('Region')
 
@@ -145,31 +159,39 @@ class WexAccount:
         client = session.client(aws[item]['service'])
 
         try:
-            page = getattr(client, aws[item]['command'])(**args)
-
             while True:
+                page = getattr(client, aws[item]['command'])(**args)
                 keys = page.keys() - system_cleanup
+
+                # if extra cleanup is required - do it now
                 if 'cleanup' in aws[item]:
                     keys -= aws[item]['cleanup']
 
+                # at this point there should be only one key; bail if more
                 if len(keys) != 1:
-                    raise ValueError(f'Unexpected keys: {page.keys()}')
+                    raise ValueError(f'Unexpected keys: {keys}')
 
                 value += page[list(keys)[0]]
 
-                if 'IsTruncated' not in page.keys():
+                if 'NextToken' not in page and \
+                        ('IsTruncated' not in page or \
+                        not json.loads(f'{page["IsTruncated"]}'.lower())):
                     break
 
-                if not json.loads(f'{page["IsTruncated"]}'.lower()):
-                    break
+                # more results expected; process NextToken/NextMarker
+                if 'NextMarker' in page:
+                    args['Marker'] = page['NextMarker']
+                elif 'NextToken' in page:
+                    args['NextToken'] = page['NextToken']
+                else:
+                    raise ValueError(f'Internal error: {page}')
 
-                args['Marker'] = page['NextMarker']
-                page = getattr(client, aws[item]['command'])(**args)
+                self.logger.info(f'\t.. more results expected: {args}')
         except KeyboardInterrupt:
             raise
         except Exception as e:
-            print(f'Exception (non-fatal): {e}')
-            value.clear()  # eg. route53resolver unavail in sa-east-1
+            print(f'Internal error {item}/{region}: {e}')
+            raise
 
         return value
 
