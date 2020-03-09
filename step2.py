@@ -67,7 +67,7 @@ class WexAnalyzer:
         self.node = node
 
         self.logger = logging.getLogger('WexAnalyzer')
-        self.logger.setLevel(logging.DEBUG)
+        self.logger.setLevel(args.logging)
 
 
         formatter = logging.Formatter(
@@ -126,15 +126,28 @@ class WexAnalyzer:
 
         raise ValueError(f'Invalid RouteTableId: {rt_id}')
 
-    def process_vpc(self, data, region, vpc):
-        # Check if Route 53 Resolver outbound endpoint already present
+    def process_vpc(self, region_name, vpc_id):
+        endpoints = list()
 
-        pass
+        # Check if Route 53 Resolver outbound endpoint is OK
+        for endpoint in self.node.data['resolver-endpoints'][region_name]:
+            if endpoint['HostVPCId'] != vpc_id or \
+                    endpoint['Direction'] != 'OUTBOUND':
+                self.logger.info(f'\tSkipping endpoint: {endpoint["Id"]}')
+                continue
 
     def run(self):
-        for region in self.node.data['regions']:
-            for vpc in self.node.data['vpcs'][region['RegionName']]:
-                print(f'{region["RegionName"]} / {vpc["VpcId"]}')
+        for region_name in [
+                region['RegionName']
+                for region
+                in self.node.data['regions']
+                ]:
+            for vpc_id in [
+                    vpc['VpcId']
+                    for vpc
+                    in self.node.data['vpcs'][region_name]
+                    ]:
+                self.process_vpc(region_name, vpc_id)
             
 
 parser = argparse.ArgumentParser()
@@ -142,17 +155,16 @@ parser.add_argument("-r", "--root", type=str,
                     help="'root' profile", default="wex-prod")
 parser.add_argument("-n", "--node", type=str,
                     help="'node' profile", default="wex-dev")
+parser.add_argument("-l", "--logging", type=str,
+                    help="logging level", default="WARN")
 parser.add_argument("-d", "--display", action='store_true',
-                    help="display AWS CLI commands; don't run", default=False)
+                    help="display AWS CLI commands; don't run", default=True)
 parser.add_argument("-u", "--unsafe", action='store_true',
                     help="always do safest guesses", default=False)
 args = parser.parse_args()
 
-root = WexAccount.WexAccount(args.root)
-node = WexAccount.WexAccount(args.node)
+root = WexAccount.WexAccount(args, args.root)
+node = WexAccount.WexAccount(args, args.node)
 
 analyzer = WexAnalyzer(args, root, node)
-#analyzer.is_private_rt(root.data, "us-east-1", "rtb-a13e37dd")  # untagged
-#analyzer.is_private_rt(root.data, "us-east-1", "rtb-07e63a55b60a16657")
-#analyzer.is_private_subnet(root.data, "us-east-1", "subnet-08eaff6e555b76790")
 analyzer.run()

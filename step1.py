@@ -1,13 +1,10 @@
 #!/usr/bin/env python3
 import argparse
-import boto3
-import json
-import os
 import re
 import sys
-import tempfile
 
 import WexAccount
+
 
 class WexAnalyzer:
     def __init__(self, args, root, node):
@@ -118,18 +115,20 @@ parser.add_argument("-r", "--root", type=str,
                     help="'root' profile", default="wex-prod")
 parser.add_argument("-n", "--node", type=str,
                     help="'node' profile", default="wex-dev")
+parser.add_argument("-l", "--logging", type=str,
+                    help="logging level", default="WARN")
 parser.add_argument("-d", "--display", action='store_true',
-                    help="display AWS CLI commands; don't run", default=False)
+                    help="display AWS CLI commands; don't run", default=True)
 parser.add_argument("-u", "--unsafe", action='store_true',
-                    help="always do safest guesses", default=False)
+                    help="allow heuristic guesses", default=False)
 args = parser.parse_args()
 
-print('#!/bin/bash -ex\n\n')
-
-root = WexAccount.WexAccount(args.root)
-node = WexAccount.WexAccount(args.node)
+root = WexAccount.WexAccount(args, args.root)
+node = WexAccount.WexAccount(args, args.node)
 
 analyzer = WexAnalyzer(args, root, node)
+
+print('#!/bin/bash -ex\n\n')
 
 analyzer.cleanup_authorizations()
 analyzer.create_authorizations_and_associations()
