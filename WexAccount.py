@@ -137,7 +137,7 @@ class WexAccount:
         self.logger.setLevel(args.logging)
 
         ch = logging.StreamHandler()
-        ch.setLevel(logging.INFO)
+        ch.setLevel(args.logging)
 
         formatter = logging.Formatter(
                 '%(asctime)s - %(name)s - %(levelname)s - %(message)s')

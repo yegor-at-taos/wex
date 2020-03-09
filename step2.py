@@ -1,15 +1,12 @@
 #!/usr/bin/env python3
 import ipaddress
 import argparse
-import boto3
-import json
 import os
 import re
-import sys
-import tempfile
 import logging
 
 import WexAccount
+
 
 class Unbound:
     def __init__(self):
@@ -23,12 +20,12 @@ class Unbound:
                 if re.match('^forward-zone:$', line):
                     yield current
                     current.clear()
-                elif re.match('^\s+name:\s', line):
-                    line = re.sub('^\s+name:\s+', '', line).strip()
+                elif re.match('^\\s+name:\\s', line):
+                    line = re.sub('^\\s+name:\\s+', '', line).strip()
                     line = re.sub('^["\']*', '', line)  # trim lead quotation
                     line = re.sub('["\']*$', '', line)  # trim trail quotation
                     current['name'] = line.lower() + '.'
-                elif re.match('^\s+forward-addr:\s', line):
+                elif re.match('^\\s+forward-addr:\\s', line):
                     if 'forward-addr' not in current:
                         current['forward-addr'] = dict()
                     addr = line.split(':')[1].strip()
@@ -60,6 +57,7 @@ class Unbound:
                     return None
                 return subnet['VpcId']
 
+
 class WexAnalyzer:
     def __init__(self, args, root, node):
         self.args = args
@@ -69,12 +67,12 @@ class WexAnalyzer:
         self.logger = logging.getLogger('WexAnalyzer')
         self.logger.setLevel(args.logging)
 
+        ch = logging.StreamHandler()
+        ch.setLevel(args.logging)
 
         formatter = logging.Formatter(
                 '%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-
-        ch = logging.StreamHandler()
-        ch.setLevel(logging.WARNING)
+        ch.setFormatter(formatter)
 
         self.logger.addHandler(ch)
 
@@ -91,7 +89,6 @@ class WexAnalyzer:
                 break
 
         return False
-
 
     def is_private_rt(self, data, region, rt_id):
         # `rt_data` is like data['route_tables']['us-east-1']
@@ -124,11 +121,9 @@ class WexAnalyzer:
             # TODO: check routing tables and see if they are private
             return False
 
-        raise ValueError(f'Invalid RouteTableId: {rt_id}')
+        raise ValueError(f'Invalid RouteTableId: {sn}')
 
     def process_vpc(self, region_name, vpc_id):
-        endpoints = list()
-
         # Check if Route 53 Resolver outbound endpoint is OK
         for endpoint in self.node.data['resolver-endpoints'][region_name]:
             if endpoint['HostVPCId'] != vpc_id or \
@@ -148,7 +143,7 @@ class WexAnalyzer:
                     in self.node.data['vpcs'][region_name]
                     ]:
                 self.process_vpc(region_name, vpc_id)
-            
+
 
 parser = argparse.ArgumentParser()
 parser.add_argument("-r", "--root", type=str,
