@@ -57,21 +57,22 @@
       "Properties": {
         "Code": {
           "ZipFile": {
-            "Fn::Join": [ "\n",
+            "Fn::Join": [
+              "\n",
               [
-                  "def handler(event, context):",
-                  "  a = [ip.split(':')",
-                  "        for ip",
-                  "        in  event['templateParameterValues']['RealResolverIps']]",
-                  "  b = [{ 'Ip': ip[0], 'Port': ip[1] }",
-                  "          for ip",
-                  "          in a]",
-                  "  r = {",
-                  "    'requestId': event['requestId'],",
-                  "    'status': 'SUCCESS',",
-                  "    'fragment': b,",
-                  "  }",
-                  "  return r"
+                "def handler(event, context):",
+                "  a = [ip.split(':')",
+                "        for ip",
+                "        in  event['templateParameterValues']['RealResolverIps']]",
+                "  b = [{ 'Ip': ip[0], 'Port': ip[1] }",
+                "          for ip",
+                "          in a]",
+                "  r = {",
+                "    'requestId': event['requestId'],",
+                "    'status': 'SUCCESS',",
+                "    'fragment': b,",
+                "  }",
+                "  return r"
               ]
             ]
           }

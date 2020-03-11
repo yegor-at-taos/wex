@@ -1,35 +1,57 @@
 {
-    "AWSTemplateFormatVersion": "2010-09-09",
-    "Description": "WEX Inc., create R53 rule for the given domain, endpoint, and IPs.",
-    "Parameters": {
-        "VpcId": {
-            "Description": "Target VPC",
-            "Type": "AWS::EC2::VPC::Id"
-        },
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "WEX Inc., create R53 rule for the given domain, endpoint, and IPs.",
+  "Parameters": {
+    "VpcId": {
+      "Description": "Target VPC",
+      "Type": "AWS::EC2::VPC::Id"
+    },
+    "DomainName": {
+      "Description": "DNS domain name, eg. `wexapps.com.`",
+      "Type": "String"
+    },
+    "RealResolverIps": {
+      "Type": "List<String>"
+    },
+    "ResolverEndpointId": {
+      "Description": "Resolver endpoint (if already present)",
+      "Type": "String",
+      "Default": "AWS::NoValue"
+    }
+  },
+  "Resources": {
+    "resolverRule": {
+      "Type": "AWS::Route53Resolver::ResolverRule",
+      "Properties": {
+        "Name": "Sample rule",
         "DomainName": {
-            "Description": "DNS domain name, eg. `wexapps.com.`",
-            "Type": "String"
-        },
-        "RealResolverIps": {
-            "Type": "List<String>"
+          "Ref": "DomainName"
         },
         "ResolverEndpointId": {
-            "Description": "Resolver endpoint (if already present)",
-            "Type": "String",
-            "Default": "AWS::NoValue"
+          "Ref": "ResolverEndpointId"
+        },
+        "RuleType": "RECURSIVE",
+        "TargetIps": {
+          "Fn::Transform": {
+            "Name": "ipsToRealResolverIps"
+          }
         }
+      }
     },
-	"Resources": {
-		"resolverRule": {
-			"Type" : "AWS::Route53Resolver::ResolverRule",
-			"Properties" : {
-				"DomainName" : { "Ref" : "DomainName" },
-				"ResolverEndpointId" : { "Ref": "ResolverEndpointId" },
-				"RuleType" : "RECURSIVE",
-                "TargetIps": {
-                    "Fn::Transform": { "Name": "ipsToRealResolverIps" }
-                }
-			}
-		}
-	}
+    "resolverRuleAssociation": {
+      "Type": "AWS::Route53Resolver::ResolverRuleAssociation",
+      "Properties": {
+        "Name": "Sample rule association",
+        "ResolverRuleId": {
+          "Fn::GetAtt": [
+            "resolverRule",
+            "ResolverRuleId"
+          ]
+        },
+        "VPCId": {
+          "Ref": "VpcId"
+        }
+      }
+    }
+  }
 }
