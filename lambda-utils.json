@@ -1,5 +1,6 @@
 {
   "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "WEX Inc., AWS Lambda tools for CloudFormation.",
   "Resources": {
     "TransformExecutionRole": {
       "Type": "AWS::IAM::Role",
@@ -59,11 +60,17 @@
             "Fn::Join": [ "\n",
               [
                   "def handler(event, context):",
-                  "  r = {}",
-                  "  r['requestId'] = event['requestId']",
-                  "  r['status'] = 'SUCCESS'",
-                  "  r['fragment'] = [ { 'Ip': '1.1.1.1', 'Port': '53' } ]",
-                  "",
+                  "  a = [ip.split(':')",
+                  "        for ip",
+                  "        in  event['templateParameterValues']['RealResolverIps']]",
+                  "  b = [{ 'Ip': ip[0], 'Port': ip[1] }",
+                  "          for ip",
+                  "          in a]",
+                  "  r = {",
+                  "    'requestId': event['requestId'],",
+                  "    'status': 'SUCCESS',",
+                  "    'fragment': b,",
+                  "  }",
                   "  return r"
               ]
             ]

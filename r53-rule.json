@@ -26,15 +26,8 @@
 				"DomainName" : { "Ref" : "DomainName" },
 				"ResolverEndpointId" : { "Ref": "ResolverEndpointId" },
 				"RuleType" : "RECURSIVE",
-                "TargetIps":
-                {
-                    "Fn::Transform": {
-                        "Name": "ipsToRealResolverIps",
-                        "Parameters":
-                        {
-                            "Foo": "Bar"
-                        }
-                    }
+                "TargetIps": {
+                    "Fn::Transform": { "Name": "ipsToRealResolverIps" }
                 }
 			}
 		}
