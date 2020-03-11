@@ -133,7 +133,7 @@ aws = {
 
 class WexAccount:
     def __init__(self, args, profile):
-        self.logger = logging.getLogger('WexAnalyzer')
+        self.logger = logging.getLogger('WexAccount')
         self.logger.setLevel(args.logging)
 
         ch = logging.StreamHandler()
@@ -148,7 +148,8 @@ class WexAccount:
         self.profile = profile
         self.data = dict([
             [name, dict()]
-            for name in aws.keys()
+            for name
+            in aws.keys()
             ])
         self.retrieve_all()
 
@@ -259,6 +260,7 @@ class WexAccount:
                 self.data[name] = cached
                 continue  # data is loaded from cache; don't reload
 
+            self.logger.info(f'Retrieving {self.profile}:{name}')
             if 'global' in aws[name]:
                 if name in [
                         'vpc-association-authorizations',
@@ -383,6 +385,7 @@ class WexAccount:
 
         if 'Tags' not in subnet:
             self.logger.warn(f'Subnet is untagged: {json.dumps(subnet)}')
+            return False
 
         value = None
 
@@ -452,6 +455,15 @@ class WexAccount:
                              f' {endpoint["Id"]}')
 
         return len(private) == 2 and len(private_azs) == 2
+
+    def r53_resolver_outpoints(self, region_name, vpc_id):
+        return [
+                endpoint
+                for endpoint
+                in self.data['resolver-endpoints'][region_name]
+                if endpoint['Direction'] == 'OUTBOUND'
+                and endpoint['HostVPCId'] == vpc_id
+                ]
 
 
 if __name__ == '__main__':

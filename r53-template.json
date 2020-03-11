@@ -1,0 +1,66 @@
+{
+    "AWSTemplateFormatVersion": "2010-09-09",
+    "Description": "WEX Inc., create R53 rule for the given domain, endpoint, and IPs.",
+    "Parameters": {
+        "RegionName": {
+            "Description": "Target region",
+            "Type": "String"
+        },
+        "VpcId": {
+            "Description": "Target VPC",
+            "Type": "AWS::EC2::VPC::Id"
+        },
+        "DomainName": {
+            "Description": "DNS domain name, eg. `wexapps.com.`",
+            "Type": "String"
+        },
+        "RealResolverIps": {
+            "Type": "List<TargetAddress>"
+        },
+        "ResolverEndpointId": {
+            "Description": "Resolver endpoint (if already present)",
+            "Type": "String",
+            "Default": "AWS::NoValue"
+        },
+        "ResolverEndpointSubnetIds": {
+            "Description": "Resolver endpoint (if already present)",
+            "Type": "List<IpAddressRequest>",
+            "Default": "AWS::NoValue"
+        },
+    },
+    "Conditions": {
+        "createResolverEndpoint": {
+            "Fn::Equals" : [
+                {"Ref" : "ResolverEndpointId"},
+                "AWS::NoValue"
+            ]
+        }
+    },
+    "Resources": {
+        "resolverEndpoint": {
+            "Condition": "createResolverEndpoint",
+            "Type" : "AWS::Route53Resolver::ResolverEndpoint",
+            "Properties" : {
+                "Direction" : "OUTBOUND",
+                "IpAddresses" : { "Ref": "ResolverEndpointSubnetIds" },
+                "SecurityGroupIds" : { "Ref": "ResolverEndpointSGIds" }
+            }
+        },
+        "resolverRule": {
+            "Type" : "AWS::Route53Resolver::ResolverRule",
+            "Properties" : {
+                "DomainName" : { "Ref" : "DomainName" },
+                "ResolverEndpointId" : {
+                    "Fn::If": [
+                        "createResolverEndpoint",
+                        { "Fn::GetAtt": "resolverEndpoint.ResolverEndpointId" },
+                        { "Ref": "ResolverEndpointId" }
+                    ]
+                },
+                "RuleType" : "RECURSIVE",
+                "Tags" : [ Tag, ... ],
+                "TargetIps" : { "Ref": "RealResolverIps" }
+            }
+        }
+    }
+}

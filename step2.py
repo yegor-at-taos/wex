@@ -1,61 +1,13 @@
 #!/usr/bin/env python3
-import ipaddress
 import argparse
+import ipaddress
+import json
 import os
 import re
 import logging
 
 import WexAccount
-
-
-class Unbound:
-    def __init__(self):
-        pass
-
-    def parse_unbound_config(self, name):
-        with open(name) as f:
-            current = dict()
-            for line in f:
-                line = line.rstrip()
-                if re.match('^forward-zone:$', line):
-                    yield current
-                    current.clear()
-                elif re.match('^\\s+name:\\s', line):
-                    line = re.sub('^\\s+name:\\s+', '', line).strip()
-                    line = re.sub('^["\']*', '', line)  # trim lead quotation
-                    line = re.sub('["\']*$', '', line)  # trim trail quotation
-                    current['name'] = line.lower() + '.'
-                elif re.match('^\\s+forward-addr:\\s', line):
-                    if 'forward-addr' not in current:
-                        current['forward-addr'] = dict()
-                    addr = line.split(':')[1].strip()
-                    current['forward-addr'][addr] = None
-            yield current
-
-    def load_all_unbound_configs(self, path):
-        value = {}
-        for name in os.listdir(path):
-            for zone in self.parse_unbound_config(f'{path}/{name}'):
-                if not zone:
-                    continue
-                if 'forward-addr' not in zone:
-                    continue
-                if 'name' not in zone:
-                    continue
-                if zone['name'] not in value:
-                    value[zone['name']] = dict()
-                value[zone['name']].update(zone['forward-addr'])
-        del value['..']
-        return value
-
-    def locate_ip(self, data, addr):
-        ip_addr = ipaddress.ip_address(addr)
-        for region in data['subnets']:
-            for subnet in data['subnets'][region]:
-                ip_cidr = ipaddress.ip_network(subnet['CidrBlock'])
-                if ip_addr in ip_cidr:
-                    return None
-                return subnet['VpcId']
+import Unbound
 
 
 class WexAnalyzer:
@@ -124,28 +76,43 @@ class WexAnalyzer:
         raise ValueError(f'Invalid RouteTableId: {sn}')
 
     def process_vpc(self, region_name, vpc_id):
+        self.logger.info(f'Processing: {region_name} {vpc_id}')
+
+        outbound_endpoints = list()
+
         # Check if Route 53 Resolver outbound endpoint is OK
-        for endpoint in self.node.data['resolver-endpoints'][region_name]:
-            if endpoint['HostVPCId'] != vpc_id or \
-                    endpoint['Direction'] != 'OUTBOUND':
-                self.logger.info(f'\tSkipping endpoint: {endpoint["Id"]}')
-                continue
+        for endpoint in self.node.r53_resolver_outpoints(region_name, vpc_id):
+            if self.node.is_resolver_endpoint_valid(region_name, endpoint):
+                outbound_endpoints.append(endpoint)
+            else:
+                self.logger.info(f'{region_name}/{vpc_id}/{endpoint["Id"]}'
+                                 f' exists but invalid')
+
+        if len(outbound_endpoints) == 0:
+            self.generate_vpc_outendpoint(region_name, vpc_id)
+            return None
+        elif len(outbound_endpoints) >= 1:
+            return outbound_endpoints[0]
+
+    def process_rules(self):
+        pass
 
     def run(self):
         for region_name in [
                 region['RegionName']
-                for region
-                in self.node.data['regions']
+                for region in self.node.data['regions']
                 ]:
             for vpc_id in [
                     vpc['VpcId']
-                    for vpc
-                    in self.node.data['vpcs'][region_name]
+                    for vpc in self.node.data['vpcs'][region_name]
                     ]:
-                self.process_vpc(region_name, vpc_id)
+                print(f'XXXXX {vpc_id}')
+                print(f'\t{self.process_vpc(region_name, vpc_id)}')
 
 
 parser = argparse.ArgumentParser()
+parser.add_argument("-p", "--path", type=str,
+                    help="Unbound configurations path", default="unbound")
 parser.add_argument("-r", "--root", type=str,
                     help="'root' profile", default="wex-prod")
 parser.add_argument("-n", "--node", type=str,
@@ -158,8 +125,12 @@ parser.add_argument("-u", "--unsafe", action='store_true',
                     help="always do safest guesses", default=False)
 args = parser.parse_args()
 
+unbound = Unbound.Unbound(args)
+print(json.dumps(unbound.data))
+
+exit(0)
+
 root = WexAccount.WexAccount(args, args.root)
 node = WexAccount.WexAccount(args, args.node)
 
-analyzer = WexAnalyzer(args, root, node)
-analyzer.run()
+WexAnalyzer(args, root, node).run()

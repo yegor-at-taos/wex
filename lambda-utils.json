@@ -1,0 +1,97 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Resources": {
+    "TransformExecutionRole": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "Service": [
+                  "lambda.amazonaws.com"
+                ]
+              },
+              "Action": [
+                "sts:AssumeRole"
+              ]
+            }
+          ]
+        },
+        "Path": "/",
+        "Policies": [
+          {
+            "PolicyName": "root",
+            "PolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Action": "*",
+                  "Resource": "*"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "TransformFunctionPermissions": {
+      "Type": "AWS::Lambda::Permission",
+      "Properties": {
+        "Action": "lambda:InvokeFunction",
+        "FunctionName": {
+          "Fn::GetAtt": [
+            "TransformFunction",
+            "Arn"
+          ]
+        },
+        "Principal": "cloudformation.amazonaws.com"
+      }
+    },
+    "TransformFunction": {
+      "Type": "AWS::Lambda::Function",
+      "Properties": {
+        "Code": {
+          "ZipFile": {
+            "Fn::Join": [ "\n",
+              [
+                  "def handler(event, context):",
+                  "  r = {}",
+                  "  r['requestId'] = event['requestId']",
+                  "  r['status'] = 'SUCCESS'",
+                  "  r['fragment'] = [ { 'Ip': '1.1.1.1', 'Port': '53' } ]",
+                  "",
+                  "  return r"
+              ]
+            ]
+          }
+        },
+        "FunctionName": "ipsToRealResolverIpsFunction",
+        "Handler": "index.handler",
+        "Runtime": "python3.7",
+        "Timeout": "3",
+        "Role": {
+          "Fn::GetAtt": [
+            "TransformExecutionRole",
+            "Arn"
+          ]
+        }
+      }
+    },
+    "Transform": {
+      "Type": "AWS::CloudFormation::Macro",
+      "Properties": {
+        "Name": "ipsToRealResolverIps",
+        "FunctionName": {
+          "Fn::GetAtt": [
+            "TransformFunction",
+            "Arn"
+          ]
+        }
+      }
+    }
+  }
+}
