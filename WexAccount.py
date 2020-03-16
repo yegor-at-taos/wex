@@ -77,6 +77,10 @@ aws = {
             'service': 'ec2',
             'command': 'describe_security_group_references',
             },
+        'vpc-peering-connections': {
+            'service': 'ec2',
+            'command': 'describe_vpc_peering_connections',
+                },
         'route-tables': {
             'service': 'ec2',
             'command': 'describe_route_tables',
