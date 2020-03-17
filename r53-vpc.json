@@ -1,0 +1,161 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "WEX Inc., AWS Lambda tools for CloudFormation.",
+  "Resources": {
+    "VpcTransformExecutionRole": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "Service": [
+                  "lambda.amazonaws.com"
+                ]
+              },
+              "Action": [
+                "sts:AssumeRole"
+              ]
+            }
+          ]
+        },
+        "Path": "/",
+        "Policies": [
+          {
+            "PolicyName": "root",
+            "PolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Action": "*",
+                  "Resource": "*"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "VpcTransformFunctionPermissions": {
+      "Type": "AWS::Lambda::Permission",
+      "Properties": {
+        "Action": "lambda:InvokeFunction",
+        "FunctionName": { "Fn::GetAtt": [ "VpcTransformFunction", "Arn" ] },
+        "Principal": "cloudformation.amazonaws.com"
+      }
+    },
+    "VpcTransformFunction": {
+      "Type": "AWS::Lambda::Function",
+      "Properties": {
+        "Code": {
+          "ZipFile": {
+            "Fn::Join": [
+              "\n",
+              [
+                "import hashlib",
+                "import re",
+                "def resource_id(args):",
+                "    digest = hashlib.blake2b()",
+                "    for arg in args:",
+                "        digest.update(bytes(arg, 'utf-8'))",
+                "    return digest.hexdigest()[-17:]",
+                "def handler(event, context):",
+                "    unbound = event['fragment']['Mappings'].pop('unbound')",
+                "    regions = event['fragment']['Mappings'].pop('regions')",
+                "    wex_tags = event['fragment']['Mappings'].pop('wex_tags')",
+                "    if not event['fragment']['Mappings']:",
+                "        event['fragment'].pop('Mappings')",
+                "    if 'Resources' not in event['fragment']:",
+                "        event['fragment']['Resources'] = dict()",
+                "    resources = event['fragment']['Resources']",
+                "    r53endpoint_tmpl = {",
+                "            'Type': 'AWS::Route53Resolver::ResolverEndpoint',",
+                "            'Properties': {",
+                "                'Direction': None,",
+                "                'IpAddresses': [],",
+                "                'SecurityGroupIds': [],",
+                "                'Name': None,",
+                "                'Tags': wex_tags,",
+                "                },",
+                "            }",
+                "    r53rule_template = {",
+                "            'Type': 'AWS::Route53Resolver::ResolverRule',",
+                "            'Properties':",
+                "            {",
+                "                'DomainName': None,",
+                "                'ResolverEndpointId': None,",
+                "                'RuleType': 'FORWARD',",
+                "                'TargetIps': [",
+                "                    {",
+                "                        'Ip': address,",
+                "                        'Port': 53,",
+                "                        }",
+                "                    for address",
+                "                    in unbound['addresses']",
+                "                    ],",
+                "                'Tags': wex_tags,",
+                "                },",
+                "            }",
+                "    r53ruleassoc_template = {",
+                "            'Type': 'AWS::Route53Resolver::ResolverRuleAssociation',",
+                "            'Properties': {",
+                "                'ResolverRuleId': None,",
+                "                'VPCId': None,",
+                "                },",
+                "            'Tags': wex_tags,",
+                "            }",
+                "    for region in regions.items():",
+                "        if event['region'] != region[0]:",
+                "            continue",
+                "        for vpc in region[1].items():",
+                "            oep_id = 'rrOutPoint' + resource_id([region[0], vpc[0]])",
+                "            oep = r53endpoint_tmpl.copy()",
+                "            oep['Properties']['Name'] = oep_id",
+                "            oep['Properties']['IpAddresses'] = [",
+                "                    {",
+                "                        'SubnetId': subnet_id",
+                "                        }",
+                "                    for subnet_id",
+                "                    in vpc[1]['private-subnets']",
+                "                    ]",
+                "            oep['Properties']['SecurityGroupIds'] = vpc[1]['security-groups']",
+                "            oep['Properties']['Direction'] = 'OUTBOUND'",
+                "            resources[oep_id] = oep",
+                "            for zone in unbound['zones']:",
+                "                rule_id = 'rrRule' + resource_id([region[0], zone])",
+                "                rule = r53rule_template.copy()",
+                "                rule['Properties']['DomainName'] = zone",
+                "                rule['Properties']['ResolverEndpointId'] = {",
+                "                        'Fn::GetAtt': [",
+                "                            oep_id, 'ResolverEndpointId'",
+                "                            ]",
+                "                        }",
+                "                resources[rule_id] = rule",
+                "    return {",
+                "            'requestId': event['requestId'],",
+                "            'status': 'SUCCESS',",
+                "            'fragment': event['fragment']",
+                "            }"
+              ]
+            ]
+          }
+        },
+        "FunctionName": "VpcTransformFunction",
+        "Handler": "index.handler",
+        "Runtime": "python3.7",
+        "Timeout": "5",
+        "Role": { "Fn::GetAtt": [ "VpcTransformExecutionRole", "Arn" ] }
+      }
+    },
+    "Transform": {
+      "Type": "AWS::CloudFormation::Macro",
+      "Properties": {
+        "Name": "wexRouteFiftyThreeMacro",
+        "FunctionName": { "Fn::GetAtt": [ "VpcTransformFunction", "Arn" ] }
+      }
+    }
+  }
+}

@@ -1,0 +1,55 @@
+{
+    "AWSTemplateFormatVersion": "2010-09-09",
+    "Description": "WEX Inc., regional macro.",
+    "Mappings": {
+        "wex_tags": [
+            {
+                "Key": "Owner",
+                "Value": "ygorshkov@taos.com"
+            }
+        ],
+        "unbound": {
+            "zones": [
+                "encprimary.com.",
+                "wrightexpress.com.",
+                "wexprodr.wexglobal.com.",
+                "internal.wexfleetweb.com.",
+                "wexcp.com.",
+                "prod.efs.com.",
+                "wexglobal.com.",
+                "wexapps.com.",
+                "wexinc.com.",
+                "ad.wrightexpress.com."
+            ],
+            "addresses": [
+                "10.98.1.166",
+                "10.94.5.87",
+                "10.97.1.99",
+                "10.94.1.77"
+            ]
+        },
+        "regions": {
+            "eu-west-1": {
+                "vpc-0845cee7fc5f5816a": {
+                    "private-subnets": [
+                        "subnet-060a19b7e3374a4e5",
+                        "subnet-0b8be53bf9aba4442"
+                    ],
+                    "security-groups": [
+                        "sg-0991cad4138d96a64"
+                    ]
+                },
+                "vpc-0ba4e60a7698ad000": {
+                    "private-subnets": [
+                        "subnet-06839dddadba4ef2c",
+                        "subnet-00bc5333d093cc426"
+                    ],
+                    "security-groups": [
+                        "sg-0f153741902024a61"
+                    ]
+                }
+            }
+        }
+    },
+    "Transform": ["wexRouteFiftyThreeMacro"]
+}
