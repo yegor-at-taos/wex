@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import argparse
 import copy
+import datetime
 import hashlib
 import json
 import re
@@ -155,12 +156,19 @@ if __name__ == '__main__':  # don't remove; processing stops at '^if\\s'
                     break
                 script.append(line)
 
-        print(
-                ',\n'.join(
-                    [
-                        f"                \"{line}\""
-                        for line in script
-                        if not re.match('^(\\s*|\\s*#.*)$', line)
-                        ]
-                    )
-                )
+        with open(re.sub('\\.py$', '.json', sys.argv[0])) as f:
+            tmpl = json.load(f)
+
+        function = tmpl['Resources']['VpcTransformFunction']
+        function['Properties']['Code']['ZipFile'] = {
+                'Fn::Join': [ '\n', script ]
+                }
+        function['Properties']['Tags'] = [
+                {
+                    'Key': 'Timestamp',
+                    'Value': f'{datetime.datetime.now()}',
+                    }
+                ]
+
+        print(json.dumps(tmpl, sort_keys=True,
+            indent=2, separators=(',', ': ')))
