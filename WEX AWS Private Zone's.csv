@@ -1,0 +1,41 @@
+Account Id,Hosted Zone Name (Hosted Zone Id)
+489194533373,"ZCDICL9ZAZJ7H(appd),Z1TZ4POEF3ELQT(s-core.search.wex-tools.com),Z359TP20OIBBVY(s-core.appd.wex-tools.com),ZH1YFPPAUP5JJ(prod.wextest.com),ZPDNJSU0HKGKI(securecoreprod.ue1.wexglobal.com),Z1PU84KRJAZJO8(securecoreprod.ec1.wexglobal.com),Z37FTRFV0GMDNU(securecoreprod.ae1.wexglobal.com),Z2LGD6Z6LGBQ03(prod.appd.wex-tools.com),Z17H3G8FTY42HK(data-wexapps.com),Z01543707B3NC98W55US(securecoreprod.ew1.wexglobal.com)"
+462221880066,"Z19XV9TFQ5KD2A(nafleetdev.ue1.wexglobal.com),Z3VPQNY63YJST1(ue1.nafleetsit.wexglobal.com),Z14QSUD75ASU4A(ue1.nafleetdbf.wexglobal.com),Z46S1PX796S1D(ue1.nafleetdit.wexglobal.com)"
+460958313225,"Z1NDUDMW4DO2CW(internal-dev.wexcp.com), Z37D4TXXWQ7HQT(local.)"
+424322684644,"Z124WQAR808CV0(tokenator-test.wexapps.com.),Z27FL3OFDZN3DC(wex-ea.com),Z02603013F0HNB3LEA94R(wex-adam-tok-53-test)"
+"246947415297,",no HZ
+"242288106566,",no private HZ
+"211666644831,",no HZ
+"199715540757,",no private HZ
+"189106039250,",coreservices prod
+"013586673397,",Z2MY9YJ61RE2ZI(internal-demo.wexcp.com.)
+"032744083734,","ZB0YI5QJFB00N(prod.intwexmobile.net), ZEYHXRD2ZFE72 (internal.wexmobileauth.com), Z2G0W5QEU5ZVQY(prod2.intwexmobile.net), ZHR1LDICB9109(prod-internal.wexmobileauth.com),Z1KX0AD0OO3EEZ(prod-internal.wexfleetcards.com), Z1BLOYQRBW1UA0 (prod-internal.wexfleetservice.com), Z2179N9CIB6HLA (internal.wexfleetservice.com), Z1EGKB46VKJ0B8(prd-internal.wexfleetweb.com), Z2LUSEO12PBF58(internal.wexfleetweb.com), Z3TYXWG3JEHHD1(prd-internal.wexfleetservice.com), Z05736321MZ1WQWC767QF(prd-internal.wexcardbenefits.com), Z0598625XGP313T227U3(internal.wexcardbenefits.com), Z07542741DUR10TJ9JY71(internal.wexfleetcards.com), Z10437031L5ACNBL0XQSM(dr-internal.wexfleetservice.com), Z0059655VVRQ8H0Z3LKT (wmd-prod)"
+"058924206222,",no private HZ
+"062690383994,","Z3QBQVGAG9BU16(nafleetprod.ue1.wexglobal.com), Z176W8QVEVP80I(nafleetprod.uw2.wexglobal.com), Z0531477JNQF5Z1QJUF1(nafleetprod.uw2.wexglobal.com -> failed)"
+"069778080576,",master account- no HZ
+"082194284810,",no private HZ
+"145463081014,",Z2THBEFBJWC9F4(internal.wexcp.com)
+"157530957999,",Z22HFHJ5DWYJ5M(aocsolcloud.com)
+"164458553375,",no hZ
+"954506432845,",no hZ
+"929143032639,","ZLUXTJBPEE676(nafleetstage.ue1.wexglobal.com), Z3RAWG371FZDGT(ue1.nafleetstage.wexglobal.com), Z2S35NLU8R72P9(nafleetstage.uw2.wexglobal.com)"
+"865628331058,","ZPGEWHTT2RZTQ(internal-sandbox.wexcp.com), Z3IR2C4YCZE7NR(encprimary.com)"
+"852836593274,",Z2T5V6MVYVALEI(internal-test.wexcp.com)
+"810542410228,",no private HZ
+"787630948708,",no hZ
+"784360110492,","ZFJP39NGUEQPR(stage.intwexmobile.net), Z2SXV26ZFX8NV5(stage-internal.wexmobileauth.com),Z2NZD6NYF7JLN2(uat-internal.wexfleetcards.com),Z30HHEDC6H46QE(uat-internal.wexfleetservice.com),Z2RU8SAOCRXPVL(uat-internal.wexmobile.com), Z3Q8VAJU5S4FXK(stg-internal.wexfleetweb.com), Z3P7YOEHWFT2M7 (stg-internal.wexfleetservice.com), Z05753042GF7ZUCKGQORB(stg-internal.wexcardbenefits.com), Z031217427G6XMLFJN2G0(wmd-stage)"
+"515743939169,",Z08089833H0JGDQPTK8PJ(nbvdev.ue1.wexglobal.com)
+"518554605247,","dit-internal.wexfleetweb.com(Z01680903B7C2QM1C6LQ8), Z01679532YVPQ1TVQIUM2 (dbf-internal.wexfleetweb.com), Z01680403T3MU0TE0HKOJ (sit-internal.wexfleetweb.com), ID:Z10268972EIORQAWMYND5 (doh-internal.wexfleetweb.com), Z10269102WJ4L1KWPJDZC(dab-internal.wexfleetweb.com), Z10269063K9U5QVGCS57G (duh-internal.wexfleetweb.com), Z10265711NXF0X3LLNBKD (sac-internal.wexfleetweb.com), Z102658526LOG08ISFUOW (sol-internal.wexfleetweb.com), Z10266081E91FF1MR4N2N (ski-internal.wexfleetweb.com),Z0236646JAI2DRM1DYSW (wmd-k-connect), Z08485002M1FSDRZT25T2 (wmd-card-watch), Z04988253P7SYCELB33TA (wmd-robs-test),  Z10052702TBZKPJXA4R5A (wmd-sit), Z0924557H6CJJ2N2TC0W (wmd-dit), Z09874843KOHDPFCFYRAU (wmd-kafka-connect-poc)"
+"553189146943,",no hz
+"578974547811,",n/a
+"612727943667,",ZIMH7I3YQ8JAM (dev.aocsol)
+"652285940762,","Z3362PCFBV46JG (wex-ce.com), Z02712783H7FQX1K8BVKX (eaprod.ue1.wexglobal.com)"
+"657982298861,",no hz
+"688064074855,","Z3LSGOP2LYLT1J (synchro.wexinc.com), Z1AEAKO1TOMMSM (devtools.wexinc.com)"
+"699593755881,",ZPZG6BYLVYX84 (arexchange.local)
+"253431644400,","ZXP5419GK59BV (coreservicesdev.ue1.wexglobal.com), ZKVFG4JW2Z53 (coreservicesdev.ec1.wexglobal.com), Z26L0UIF5Y9PUI (coreservicesdev.ae1.wexglobal.com), Z101722137AIOAW120XXI (10.97.10.in-addr.arpa)"
+"730479414199,","ZECAHZILI909 (securecoredev.ue1.wexglobal.com), Z6KIT38RL16TB (securecoredev.ec1.wexglobal.com)"
+"619076983489,",no hz
+"816299224579,",Z3PWUVFR99E40S (dev.wexauthgateway.com)
+"978301486398,","Z10264372SX8V7AHLK58R (97.10.in-addr.arpa), Z14T8LOABW6RUU(ifcsdev.ae1.wexglobal.com), ZIXI1N7V1VKZA(ifcsdev.ec1.wexglobal.com)"
+230301504672,"ZCAEL4LQ707P9 (ifcsstage.ec1.wexglobal.com), ZB02BZG7NSKBP (ifcsuat.ec1.wexglobal.com), ZRISTKVVKECGT (ifcsstage.ae1.wexglobal.com.)"
