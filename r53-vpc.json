@@ -56,10 +56,11 @@
       "Type": "AWS::Lambda::Function",
       "Properties": {
         "Code": {
-          "ZipFile": {}
+          "S3Bucket": "wex-scripts",
+          "S3Key": "VpcTransformFunction.zip"
         },
         "FunctionName": "VpcTransformFunction",
-        "Handler": "index.handler",
+        "Handler": "VpcTransformFunction.handler",
         "Runtime": "python3.7",
         "Timeout": "3",
         "Role": {

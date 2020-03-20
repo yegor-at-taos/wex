@@ -156,10 +156,12 @@ if __name__ == '__main__':  # don't remove; processing stops at '^if\\s'
                         help="Run tests; don't print", default=False)
     parser.add_argument("-c", "--csv", type=str,
                         help="WEX Zones CSV", default="WEX AWS Private Zone's.csv")
+    # If nothing specified then sanitize Python and print
+    # Use r53-vpc.bash to update it at AWS S3
     args = parser.parse_args()
 
     if args.test:
-        for test in ['00']:  # TODO go over 'tests' directory
+        for test in ['00']:  # TODO implement proper tests
             with open(f'tests/{test}-event.json') as t:
                 event = json.load(t)
             response = handler(event, None)
@@ -211,6 +213,10 @@ if __name__ == '__main__':  # don't remove; processing stops at '^if\\s'
                     assert(index % 4 == 0)
                     line = ' ' * (index >> 2) + line[index:]
                 script.append(line)
+
+        print('\n'.join(script))
+
+        exit(0)
 
         with open(re.sub('\\.py$', '.json', sys.argv[0])) as f:
             tmpl = json.load(f)

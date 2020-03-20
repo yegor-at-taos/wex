@@ -5,7 +5,7 @@ region='us-west-2'
 bucket='wex-scripts'
 script='VpcTransformFunction'
 
-temp=$(mktemp)
+temp=$script.zip
 
 cleanup() {
     trap - EXIT
@@ -14,7 +14,7 @@ cleanup() {
 
 trap cleanup EXIT
 
-# Make bucket if it is not already there
+# Make bucket if it doesn't exist
 if [[ $(aws --profile $profile --region $region s3api list-buckets \
     | jq ".Buckets[] | select(.Name | test(\"$bucket\"))" \
     | wc -l) -eq 0 ]]; then
@@ -23,7 +23,12 @@ if [[ $(aws --profile $profile --region $region s3api list-buckets \
         --acl authenticated-read --bucket $bucket
 fi
 
-./r53-vpc.py > $temp
+./r53-vpc.py > $script.py; zip -9m $script.zip $script.py
 
 aws --profile $profile --region $region s3 \
-    cp $temp s3://$bucket/$script.py
+    cp $temp s3://$bucket/$temp
+
+aws --profile $profile --region $region cloudformation update-stack \
+    --stack-name wexRouteFiftyThreeMacro \
+    --template-body file://r53-vpc.json \
+    --capabilities CAPABILITY_IAM   
