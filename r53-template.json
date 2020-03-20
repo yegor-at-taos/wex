@@ -11,24 +11,13 @@
       ],
       "Infoblox": {
         "Accounts": {
-            "489194533373": {
-                "OnPremZones": [
-                  "encprimary.com.",
-                  "wrightexpress.com.",
-                  "wexprodr.wexglobal.com.",
-                  "internal.wexfleetweb.com.",
-                  "wexcp.com.",
-                  "prod.efs.com.",
-                  "wexglobal.com.",
-                  "wexapps.com.",
-                  "wexinc.com.",
-                  "ad.wrightexpress.com."
-                ],
+            "189106039250": {
+                "Description": "Manually added: coreservices-prod",
                 "OnPremResolverAddresses": [
-                  "10.98.1.166",
+                  "10.94.1.77",
                   "10.94.5.87",
                   "10.97.1.99",
-                  "10.94.1.77"
+                  "10.98.1.166"
                 ]
             }
         }

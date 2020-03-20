@@ -3,6 +3,7 @@ import argparse
 import csv
 import re
 import sys
+import json
 
 import WexAccount
 
@@ -41,7 +42,33 @@ class WexAnalyzer:
                     del csv_data[acct]
         return (csv_data, csv_name)
 
+    def generate(self):
+        csv_data, csv_name = self.import_csv()
+
+        with open('r53-template.json') as f:
+            tmpl = json.load(f)
+
+        for account in csv_data.items():
+            tmpl['Mappings']['Wex']['Infoblox']['Accounts'] \
+                    [account[0]] = {
+                            'Description': 'Auto-generated',
+                            'HostedZones': dict(
+                                [
+                                    [zone, csv_name[zone][6:-1]]
+                                    for zone
+                                    in account[1]
+                                    ]
+                                )
+                            }
+
+        print(json.dumps(tmpl, indent=2))
+
+
     def run(self):
+        if self.args.generate:
+            self.generate()
+            return
+
         self.csv_writer.writerow([
             'Account ID',
             'Hosted Zone',
@@ -96,8 +123,8 @@ parser.add_argument("-f", "--file", type=str,
                     default="WEX AWS Private Zone's.csv")
 parser.add_argument("-l", "--logging", type=str,
                     help="logging level", default="WARN")
+parser.add_argument("-g", "--generate", action='store_true',
+                    help="Generate config from CSV", default=True)
 args = parser.parse_args()
 
-analyzer = WexAnalyzer(args)
-
-analyzer.run()
+WexAnalyzer(args).run()
