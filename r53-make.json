@@ -2,71 +2,61 @@
   "AWSTemplateFormatVersion": "2010-09-09",
   "Description": "WEX Inc., regional macro.",
   "Mappings": {
-    "wex_tags": [
-      {
-        "Key": "Owner",
-        "Value": "ygorshkov@taos.com"
-      }
-    ],
-    "unbound": {
-      "zones": [
-        "encprimary.com.",
-        "wrightexpress.com.",
-        "wexprodr.wexglobal.com.",
-        "internal.wexfleetweb.com.",
-        "wexcp.com.",
-        "prod.efs.com.",
-        "wexglobal.com.",
-        "wexapps.com.",
-        "wexinc.com.",
-        "ad.wrightexpress.com."
+    "Wex": {
+      "Tags": [
+        {
+          "Key": "Owner",
+          "Value": "ygorshkov@taos.com"
+        }
       ],
-      "addresses": [
-        "10.98.1.166",
-        "10.94.5.87",
-        "10.97.1.99",
-        "10.94.1.77"
-      ]
-    },
-    "sources": {
-      "us-east-1": {
-        "stack-name": "dr-dc-prod-ue1-vpc-stk"
+      "Infoblox": {
+        "Accounts": {
+            "489194533373": {
+                "OnPremZones": [
+                  "encprimary.com.",
+                  "wrightexpress.com.",
+                  "wexprodr.wexglobal.com.",
+                  "internal.wexfleetweb.com.",
+                  "wexcp.com.",
+                  "prod.efs.com.",
+                  "wexglobal.com.",
+                  "wexapps.com.",
+                  "wexinc.com.",
+                  "ad.wrightexpress.com."
+                ],
+                "OnPremResolverAddresses": [
+                  "10.98.1.166",
+                  "10.94.5.87",
+                  "10.97.1.99",
+                  "10.94.1.77"
+                ].
+                "HostedZones": [
+                ]
+            }
+        }
       },
-      "us-west-2": {
-        "stack-name": "coreservices-prod-uw2-vpc-stk"
-      },
-      "eu-central-1": {
-        "stack-name": "AWS::NoValue"
-      },
-      "eu-west-1": {
-        "stack-name": "coreservices-prod-ew1-vpc-stk"
-      },
-      "ap-southeast-1": {
-        "stack-name": "dr-dc-coreservices-prod-ae1-vpc-stk"
-      },
-      "ap-southeast-2": {
-        "stack-name": "dr-dc-coreservices-prod-ae2-vpc-stk"
-      }
-    },
-    "regions": {
-      "eu-west-1": {
-        "vpc-0845cee7fc5f5816a": {
-          "private-subnets": [
-            "subnet-060a19b7e3374a4e5",
-            "subnet-0b8be53bf9aba4442"
-          ],
-          "security-groups": [
-            "sg-0991cad4138d96a64"
-          ]
+      "Regions": {
+        "us-east-1": {
+          "stack-name": "coreservices-prod-ue1-vpc-stk",
+          "overrides": {
+            "comment": "Override values derived from the parent stack"
+          }
         },
-        "vpc-0ba4e60a7698ad000": {
-          "private-subnets": [
-            "subnet-06839dddadba4ef2c",
-            "subnet-00bc5333d093cc426"
-          ],
-          "security-groups": [
-            "sg-0f153741902024a61"
-          ]
+        "us-west-2": {
+          "stack-name": "coreservices-prod-uw2-vpc-stk",
+          "overrides": "AWS::NoValue"
+        },
+        "eu-central-1": {
+          "stack-name": "coreservices-prod-ec1-vpc-stk"
+        },
+        "eu-west-1": {
+          "stack-name": "coreservices-prod-ew1-vpc-stk"
+        },
+        "ap-southeast-1": {
+          "stack-name": "coreservices-prod-ue1-vpc-stk"
+        },
+        "ap-southeast-2": {
+          "stack-name": "coreservices-prod-ue1-vpc-stk"
         }
       }
     }

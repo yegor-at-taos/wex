@@ -1,62 +1,71 @@
 {
-    "accountId": "672442290193",
-    "fragment": {
-        "AWSTemplateFormatVersion": "2010-09-09",
-        "Description": "WEX Inc., regional macro.",
-        "Mappings": {
-            "wex_tags": [
-                {
-                    "Key": "Owner",
-                    "Value": "ygorshkov@taos.com"
-                }
-            ],
-            "unbound": {
-                "zones": [
-                    "encprimary.com.",
-                    "wrightexpress.com.",
-                    "wexprodr.wexglobal.com.",
-                    "internal.wexfleetweb.com.",
-                    "wexcp.com.",
-                    "prod.efs.com.",
-                    "wexglobal.com.",
-                    "wexapps.com.",
-                    "wexinc.com.",
-                    "ad.wrightexpress.com."
-                ],
-                "addresses": [
-                    "10.98.1.166",
-                    "10.94.5.87",
-                    "10.97.1.99",
-                    "10.94.1.77"
-                ]
-            },
-            "regions": {
-                "eu-west-1": {
-                    "vpc-0845cee7fc5f5816a": {
-                        "private-subnets": [
-                            "subnet-060a19b7e3374a4e5",
-                            "subnet-0b8be53bf9aba4442"
-                        ],
-                        "security-groups": [
-                            "sg-0991cad4138d96a64"
-                        ]
-                    },
-                    "vpc-0ba4e60a7698ad000": {
-                        "private-subnets": [
-                            "subnet-06839dddadba4ef2c",
-                            "subnet-00bc5333d093cc426"
-                        ],
-                        "security-groups": [
-                            "sg-0f153741902024a61"
-                        ]
-                    }
-                }
+  "accountId": "672442290193",
+  "fragment": {
+    "AWSTemplateFormatVersion": "2010-09-09",
+    "Description": "WEX Inc., regional macro.",
+    "Mappings": {
+      "Wex": {
+        "Tags": [
+          {
+            "Key": "Owner",
+            "Value": "ygorshkov@taos.com"
+          }
+        ],
+        "Infoblox": {
+          "Zones": [
+            "encprimary.com.",
+            "wrightexpress.com.",
+            "wexprodr.wexglobal.com.",
+            "internal.wexfleetweb.com.",
+            "wexcp.com.",
+            "prod.efs.com.",
+            "wexglobal.com.",
+            "wexapps.com.",
+            "wexinc.com.",
+            "ad.wrightexpress.com."
+          ],
+          "Addresses": [
+            "10.98.1.166",
+            "10.94.5.87",
+            "10.97.1.99",
+            "10.94.1.77"
+          ]
+        },
+        "Regions": {
+          "us-east-1": {
+            "stack-name": "coreservices-prod-ue1-vpc-stk",
+            "overrides": {
+              "comment": "Override values derived from the parent stack"
             }
+          },
+          "us-west-2": {
+            "stack-name": "coreservices-prod-uw2-vpc-stk",
+            "overrides": "AWS::NoValue"
+          },
+          "eu-central-1": {
+            "stack-name": "coreservices-prod-ec1-vpc-stk"
+          },
+          "eu-west-1": {
+            "stack-name": "coreservices-prod-ew1-vpc-stk"
+          },
+          "ap-southeast-1": {
+            "stack-name": "coreservices-prod-ue1-vpc-stk"
+          },
+          "ap-southeast-2": {
+            "stack-name": "coreservices-prod-ue1-vpc-stk"
+          }
+        },
+        "Resources": {
         }
+      }
     },
-    "transformId": "672442290193::wexRouteFiftyThreeMacro",
-    "requestId": "f09bfa28-84da-4f59-9b32-cffa92e37f3a",
-    "region": "eu-west-1",
-    "params": {},
-    "templateParameterValues": {}
+    "Transform": [
+      "wexRouteFiftyThreeMacro"
+    ]
+  },
+  "transformId": "672442290193::wexRouteFiftyThreeMacro",
+  "requestId": "f09bfa28-84da-4f59-9b32-cffa92e37f3a",
+  "region": "us-west-2",
+  "params": {},
+  "templateParameterValues": {}
 }

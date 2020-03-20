@@ -1,0 +1,46 @@
+[
+  {
+    "ParameterKey": "Name",
+    "ParameterValue": "coreservices"
+  },
+  {
+    "ParameterKey": "VpcCidr",
+    "ParameterValue": "10.94.4.0/22"
+  },
+  {
+    "ParameterKey": "PublicSubnet1Cidr",
+    "ParameterValue": "10.94.4.0/26"
+  },
+  {
+    "ParameterKey": "PublicSubnet2Cidr",
+    "ParameterValue": "10.94.4.64/26"
+  },
+  {
+    "ParameterKey": "PublicSubnet3Cidr",
+    "ParameterValue": "10.94.4.128/26"
+  },
+  {
+    "ParameterKey": "PrivateSubnet1Cidr",
+    "ParameterValue": "10.94.5.0/24"
+  },
+  {
+    "ParameterKey": "PrivateSubnet2Cidr",
+    "ParameterValue": "10.94.6.0/24"
+  },
+  {
+    "ParameterKey": "PrivateSubnet3Cidr",
+    "ParameterValue": "10.94.7.0/24"
+  },
+  {
+    "ParameterKey": "Environment",
+    "ParameterValue": "prod"
+  },
+  {
+    "ParameterKey": "CreateFlowLogRole",
+    "ParameterValue": "YES"
+  },
+  {
+    "ParameterKey": "RoleArn",
+    "ParameterValue": "AWS::NoValue"
+  }
+]

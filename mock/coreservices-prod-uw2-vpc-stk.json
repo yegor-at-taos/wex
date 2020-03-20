@@ -1,0 +1,1418 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "WEX Inc., AWS CloudFormation Template for VPC creates 3AZ's public/private subnets with NatGateway, VPC Flowlogs, S3 endpoint.",
+  "Metadata": {
+    "AWS::CloudFormation::Interface": {
+      "ParameterGroups": [
+        {
+          "Label": {
+            "default": "VPC"
+          },
+          "Parameters": [
+            "Name",
+            "VpcCidr",
+            "Environment"
+          ]
+        },
+        {
+          "Label": {
+            "default": "Public Subnets"
+          },
+          "Parameters": [
+            "PublicSubnet1Cidr",
+            "PublicSubnet2Cidr",
+            "PublicSubnet3Cidr"
+          ]
+        },
+        {
+          "Label": {
+            "default": "Private Subnets"
+          },
+          "Parameters": [
+            "PrivateSubnet1Cidr",
+            "PrivateSubnet2Cidr",
+            "PrivateSubnet3Cidr"
+          ]
+        },
+        {
+          "Label": {
+            "default": "VPC Flowlogs"
+          },
+          "Parameters": [
+            "CreateFlowLogRole",
+            "RoleArn"
+          ]
+        }
+      ]
+    }
+  },
+  "Parameters": {
+    "Name": {
+      "ConstraintDescription": "Must be a name all one word, no spaces or special characters",
+      "Description": "Name of your LOB or Project",
+      "Type": "String"
+    },
+    "VpcCidr": {
+      "ConstraintDescription": "Must be a valid IP CIDR range of the form x.x.x.x/x.",
+      "Description": "The CIDR range for your VPC in form x.x.x.x/x",
+      "Type": "String"
+    },
+    "PublicSubnet1Cidr": {
+      "ConstraintDescription": "Must be a valid IP CIDR range of the form x.x.x.x/x.",
+      "Description": "The CIDR range for your Public 1 Subnet in form x.x.x.x/x",
+      "Type": "String"
+    },
+    "PrivateSubnet1Cidr": {
+      "ConstraintDescription": "Must be a valid IP CIDR range of the form x.x.x.x/x.",
+      "Description": "The CIDR range for your Private 1 Subnet in form x.x.x.x/x",
+      "Type": "String"
+    },
+    "PublicSubnet2Cidr": {
+      "ConstraintDescription": "Must be a valid IP CIDR range of the form x.x.x.x/x.",
+      "Description": "The CIDR range for your Public 2 Subnet in form x.x.x.x/x",
+      "Type": "String"
+    },
+    "PrivateSubnet2Cidr": {
+      "ConstraintDescription": "Must be a valid IP CIDR range of the form x.x.x.x/x.",
+      "Description": "The CIDR range for your Private 2 Subnet in form x.x.x.x/x",
+      "Type": "String"
+    },
+    "PublicSubnet3Cidr": {
+      "ConstraintDescription": "Must be a valid IP CIDR range of the form x.x.x.x/x.",
+      "Description": "The CIDR range for your Public 3 Subnet in form x.x.x.x/x",
+      "Type": "String"
+    },
+    "PrivateSubnet3Cidr": {
+      "ConstraintDescription": "Must be a valid IP CIDR range of the form x.x.x.x/x.",
+      "Description": "The CIDR range for your Private 3 Subnet in form x.x.x.x/x",
+      "Type": "String"
+    },
+    "Environment": {
+      "Description": "Specify the Environment where lambda function is deploying.",
+      "Type": "String",
+      "Default": "sandbox",
+      "AllowedValues": [
+        "dev",
+        "qa",
+        "uat",
+        "demo",
+        "stage",
+        "prod",
+        "sandbox"
+      ],
+      "ConstraintDescription": "Must specify dev|qa|prod|stage|demo|uat|sandbox."
+    },
+    "CreateFlowLogRole": {
+      "Description": "Do you want to create flowlog role for VPC.",
+      "Default": "YES",
+      "Type": "String",
+      "AllowedValues": [
+        "YES",
+        "NO"
+      ],
+      "ConstraintDescription": "Must specify YES or NO."
+    },
+    "RoleArn": {
+      "Description": "Role Arn for the vpc flowlog role (Required only if CreateFlowLogRole parameter choose 'NO').",
+      "Type": "String"
+    }
+  },
+  "Conditions": {
+    "CreateVpcFlowLogRole": {
+      "Fn::Equals": [
+        {
+          "Ref": "CreateFlowLogRole"
+        },
+        "YES"
+      ]
+    }
+  },
+  "Mappings": {
+    "RegionMap": {
+      "us-east-2": {
+        "region": "ue2"
+      },
+      "us-east-1": {
+        "region": "ue1"
+      },
+      "us-west-1": {
+        "region": "uw1"
+      },
+      "us-west-2": {
+        "region": "uw2"
+      },
+      "ap-northeast-1": {
+        "region": "an1"
+      },
+      "ap-northeast-2": {
+        "region": "an2"
+      },
+      "ap-northeast-3": {
+        "region": "an3"
+      },
+      "ap-south-1": {
+        "region": "as1"
+      },
+      "ap-southeast-1": {
+        "region": "ae1"
+      },
+      "ap-southeast-2": {
+        "region": "ae2"
+      },
+      "ca-central-1": {
+        "region": "cc1"
+      },
+      "cn-north-1": {
+        "region": "cn1"
+      },
+      "cn-northwest-1": {
+        "region": "cw1"
+      },
+      "eu-central-1": {
+        "region": "ec1"
+      },
+      "eu-west-1": {
+        "region": "ew1"
+      },
+      "eu-west-2": {
+        "region": "ew2"
+      },
+      "eu-west-3": {
+        "region": "ew3"
+      },
+      "sa-east-1": {
+        "region": "se1"
+      }
+    }
+  },
+  "Resources": {
+    "Vpc": {
+      "Properties": {
+        "CidrBlock": {
+          "Ref": "VpcCidr"
+        },
+        "EnableDnsHostnames": "true",
+        "EnableDnsSupport": "true",
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": {
+              "Fn::Join": [
+                "-",
+                [
+                  {
+                    "Ref": "Name"
+                  },
+                  {
+                    "Ref": "Environment"
+                  },
+                  {
+                    "Fn::FindInMap": [
+                      "RegionMap",
+                      {
+                        "Ref": "AWS::Region"
+                      },
+                      "region"
+                    ]
+                  },
+                  "vpc"
+                ]
+              ]
+            }
+          }
+        ]
+      },
+      "Type": "AWS::EC2::VPC"
+    },
+    "InternetGateway": {
+      "DependsOn": "Vpc",
+      "Properties": {
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": {
+              "Fn::Join": [
+                "-",
+                [
+                  {
+                    "Ref": "Name"
+                  },
+                  {
+                    "Ref": "Environment"
+                  },
+                  {
+                    "Fn::FindInMap": [
+                      "RegionMap",
+                      {
+                        "Ref": "AWS::Region"
+                      },
+                      "region"
+                    ]
+                  },
+                  "vpc-igw"
+                ]
+              ]
+            }
+          }
+        ]
+      },
+      "Type": "AWS::EC2::InternetGateway"
+    },
+    "AttachGateway": {
+      "DependsOn": [
+        "Vpc",
+        "InternetGateway"
+      ],
+      "Properties": {
+        "InternetGatewayId": {
+          "Ref": "InternetGateway"
+        },
+        "VpcId": {
+          "Ref": "Vpc"
+        }
+      },
+      "Type": "AWS::EC2::VPCGatewayAttachment"
+    },
+    "RouteViaIgw": {
+      "DependsOn": "Vpc",
+      "Properties": {
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": {
+              "Fn::Join": [
+                "-",
+                [
+                  {
+                    "Ref": "Name"
+                  },
+                  {
+                    "Ref": "Environment"
+                  },
+                  {
+                    "Fn::FindInMap": [
+                      "RegionMap",
+                      {
+                        "Ref": "AWS::Region"
+                      },
+                      "region"
+                    ]
+                  },
+                  "vpc-public-rt-1"
+                ]
+              ]
+            }
+          }
+        ],
+        "VpcId": {
+          "Ref": "Vpc"
+        }
+      },
+      "Type": "AWS::EC2::RouteTable"
+    },
+    "PublicRouteViaIgw": {
+      "DependsOn": [
+        "AttachGateway",
+        "RouteViaIgw"
+      ],
+      "Properties": {
+        "DestinationCidrBlock": "0.0.0.0/0",
+        "GatewayId": {
+          "Ref": "InternetGateway"
+        },
+        "RouteTableId": {
+          "Ref": "RouteViaIgw"
+        }
+      },
+      "Type": "AWS::EC2::Route"
+    },
+    "PublicSubnet1": {
+      "DependsOn": "Vpc",
+      "Properties": {
+        "AvailabilityZone": {
+          "Fn::Select": [
+            "0",
+            {
+              "Fn::GetAZs": ""
+            }
+          ]
+        },
+        "CidrBlock": {
+          "Ref": "PublicSubnet1Cidr"
+        },
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": {
+              "Fn::Join": [
+                "-",
+                [
+                  {
+                    "Ref": "Name"
+                  },
+                  {
+                    "Ref": "Environment"
+                  },
+                  {
+                    "Fn::FindInMap": [
+                      "RegionMap",
+                      {
+                        "Ref": "AWS::Region"
+                      },
+                      "region"
+                    ]
+                  },
+                  "vpc-publicsubnet-1"
+                ]
+              ]
+            }
+          },
+          {
+            "Key": "Tier",
+            "Value": "Public"
+          }
+        ],
+        "VpcId": {
+          "Ref": "Vpc"
+        }
+      },
+      "Type": "AWS::EC2::Subnet"
+    },
+    "PrivateSubnet1": {
+      "DependsOn": "Vpc",
+      "Properties": {
+        "AvailabilityZone": {
+          "Fn::Select": [
+            "0",
+            {
+              "Fn::GetAZs": ""
+            }
+          ]
+        },
+        "CidrBlock": {
+          "Ref": "PrivateSubnet1Cidr"
+        },
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": {
+              "Fn::Join": [
+                "-",
+                [
+                  {
+                    "Ref": "Name"
+                  },
+                  {
+                    "Ref": "Environment"
+                  },
+                  {
+                    "Fn::FindInMap": [
+                      "RegionMap",
+                      {
+                        "Ref": "AWS::Region"
+                      },
+                      "region"
+                    ]
+                  },
+                  "vpc-privatesubnet-1"
+                ]
+              ]
+            }
+          },
+          {
+            "Key": "Tier",
+            "Value": "Private"
+          }
+        ],
+        "VpcId": {
+          "Ref": "Vpc"
+        }
+      },
+      "Type": "AWS::EC2::Subnet"
+    },
+    "PublicSubnet2": {
+      "DependsOn": "Vpc",
+      "Properties": {
+        "AvailabilityZone": {
+          "Fn::Select": [
+            "1",
+            {
+              "Fn::GetAZs": ""
+            }
+          ]
+        },
+        "CidrBlock": {
+          "Ref": "PublicSubnet2Cidr"
+        },
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": {
+              "Fn::Join": [
+                "-",
+                [
+                  {
+                    "Ref": "Name"
+                  },
+                  {
+                    "Ref": "Environment"
+                  },
+                  {
+                    "Fn::FindInMap": [
+                      "RegionMap",
+                      {
+                        "Ref": "AWS::Region"
+                      },
+                      "region"
+                    ]
+                  },
+                  "vpc-publicsubnet-2"
+                ]
+              ]
+            }
+          },
+          {
+            "Key": "Tier",
+            "Value": "Public"
+          }
+        ],
+        "VpcId": {
+          "Ref": "Vpc"
+        }
+      },
+      "Type": "AWS::EC2::Subnet"
+    },
+    "PrivateSubnet2": {
+      "DependsOn": "Vpc",
+      "Properties": {
+        "AvailabilityZone": {
+          "Fn::Select": [
+            "1",
+            {
+              "Fn::GetAZs": ""
+            }
+          ]
+        },
+        "CidrBlock": {
+          "Ref": "PrivateSubnet2Cidr"
+        },
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": {
+              "Fn::Join": [
+                "-",
+                [
+                  {
+                    "Ref": "Name"
+                  },
+                  {
+                    "Ref": "Environment"
+                  },
+                  {
+                    "Fn::FindInMap": [
+                      "RegionMap",
+                      {
+                        "Ref": "AWS::Region"
+                      },
+                      "region"
+                    ]
+                  },
+                  "vpc-privatesubnet-2"
+                ]
+              ]
+            }
+          },
+          {
+            "Key": "Tier",
+            "Value": "Private"
+          }
+        ],
+        "VpcId": {
+          "Ref": "Vpc"
+        }
+      },
+      "Type": "AWS::EC2::Subnet"
+    },
+    "PublicSubnet3": {
+      "DependsOn": "Vpc",
+      "Properties": {
+        "AvailabilityZone": {
+          "Fn::Select": [
+            "2",
+            {
+              "Fn::GetAZs": ""
+            }
+          ]
+        },
+        "CidrBlock": {
+          "Ref": "PublicSubnet3Cidr"
+        },
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": {
+              "Fn::Join": [
+                "-",
+                [
+                  {
+                    "Ref": "Name"
+                  },
+                  {
+                    "Ref": "Environment"
+                  },
+                  {
+                    "Fn::FindInMap": [
+                      "RegionMap",
+                      {
+                        "Ref": "AWS::Region"
+                      },
+                      "region"
+                    ]
+                  },
+                  "vpc-publicsubnet-3"
+                ]
+              ]
+            }
+          },
+          {
+            "Key": "Tier",
+            "Value": "Public"
+          }
+        ],
+        "VpcId": {
+          "Ref": "Vpc"
+        }
+      },
+      "Type": "AWS::EC2::Subnet"
+    },
+    "PrivateSubnet3": {
+      "DependsOn": "Vpc",
+      "Properties": {
+        "AvailabilityZone": {
+          "Fn::Select": [
+            "2",
+            {
+              "Fn::GetAZs": ""
+            }
+          ]
+        },
+        "CidrBlock": {
+          "Ref": "PrivateSubnet3Cidr"
+        },
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": {
+              "Fn::Join": [
+                "-",
+                [
+                  {
+                    "Ref": "Name"
+                  },
+                  {
+                    "Ref": "Environment"
+                  },
+                  {
+                    "Fn::FindInMap": [
+                      "RegionMap",
+                      {
+                        "Ref": "AWS::Region"
+                      },
+                      "region"
+                    ]
+                  },
+                  "vpc-privatesubnet-3"
+                ]
+              ]
+            }
+          },
+          {
+            "Key": "Tier",
+            "Value": "Private"
+          }
+        ],
+        "VpcId": {
+          "Ref": "Vpc"
+        }
+      },
+      "Type": "AWS::EC2::Subnet"
+    },
+    "PublicSubnet1RouteTableAssociation": {
+      "DependsOn": [
+        "PublicSubnet1",
+        "RouteViaIgw"
+      ],
+      "Properties": {
+        "RouteTableId": {
+          "Ref": "RouteViaIgw"
+        },
+        "SubnetId": {
+          "Ref": "PublicSubnet1"
+        }
+      },
+      "Type": "AWS::EC2::SubnetRouteTableAssociation"
+    },
+    "PublicSubnet2RouteTableAssociation": {
+      "DependsOn": [
+        "PublicSubnet2",
+        "RouteViaIgw"
+      ],
+      "Properties": {
+        "RouteTableId": {
+          "Ref": "RouteViaIgw"
+        },
+        "SubnetId": {
+          "Ref": "PublicSubnet2"
+        }
+      },
+      "Type": "AWS::EC2::SubnetRouteTableAssociation"
+    },
+    "PublicSubnet3RouteTableAssociation": {
+      "DependsOn": [
+        "PublicSubnet3",
+        "RouteViaIgw"
+      ],
+      "Properties": {
+        "RouteTableId": {
+          "Ref": "RouteViaIgw"
+        },
+        "SubnetId": {
+          "Ref": "PublicSubnet3"
+        }
+      },
+      "Type": "AWS::EC2::SubnetRouteTableAssociation"
+    },
+    "NatGateway1": {
+      "DependsOn": [
+        "AttachGateway",
+        "NatGateway1EIP"
+      ],
+      "Type": "AWS::EC2::NatGateway",
+      "Properties": {
+        "AllocationId": {
+          "Fn::GetAtt": [
+            "NatGateway1EIP",
+            "AllocationId"
+          ]
+        },
+        "SubnetId": {
+          "Ref": "PublicSubnet1"
+        },
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": {
+              "Fn::Join": [
+                "-",
+                [
+                  {
+                    "Ref": "Name"
+                  },
+                  {
+                    "Ref": "Environment"
+                  },
+                  {
+                    "Fn::FindInMap": [
+                      "RegionMap",
+                      {
+                        "Ref": "AWS::Region"
+                      },
+                      "region"
+                    ]
+                  },
+                  "vpc-natgateway-1"
+                ]
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "NatGateway1EIP": {
+      "Type": "AWS::EC2::EIP",
+      "Properties": {
+        "Domain": "vpc"
+      }
+    },
+    "NatGateway2": {
+      "DependsOn": [
+        "AttachGateway",
+        "NatGateway2EIP"
+      ],
+      "Type": "AWS::EC2::NatGateway",
+      "Properties": {
+        "AllocationId": {
+          "Fn::GetAtt": [
+            "NatGateway2EIP",
+            "AllocationId"
+          ]
+        },
+        "SubnetId": {
+          "Ref": "PublicSubnet2"
+        },
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": {
+              "Fn::Join": [
+                "-",
+                [
+                  {
+                    "Ref": "Name"
+                  },
+                  {
+                    "Ref": "Environment"
+                  },
+                  {
+                    "Fn::FindInMap": [
+                      "RegionMap",
+                      {
+                        "Ref": "AWS::Region"
+                      },
+                      "region"
+                    ]
+                  },
+                  "vpc-natgateway-2"
+                ]
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "NatGateway2EIP": {
+      "Type": "AWS::EC2::EIP",
+      "Properties": {
+        "Domain": "vpc"
+      }
+    },
+    "NatGateway3": {
+      "DependsOn": [
+        "AttachGateway",
+        "NatGateway3EIP"
+      ],
+      "Type": "AWS::EC2::NatGateway",
+      "Properties": {
+        "AllocationId": {
+          "Fn::GetAtt": [
+            "NatGateway3EIP",
+            "AllocationId"
+          ]
+        },
+        "SubnetId": {
+          "Ref": "PublicSubnet3"
+        },
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": {
+              "Fn::Join": [
+                "-",
+                [
+                  {
+                    "Ref": "Name"
+                  },
+                  {
+                    "Ref": "Environment"
+                  },
+                  {
+                    "Fn::FindInMap": [
+                      "RegionMap",
+                      {
+                        "Ref": "AWS::Region"
+                      },
+                      "region"
+                    ]
+                  },
+                  "vpc-natgateway-3"
+                ]
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "NatGateway3EIP": {
+      "Type": "AWS::EC2::EIP",
+      "Properties": {
+        "Domain": "vpc"
+      }
+    },
+    "RouteViaNAT1": {
+      "DependsOn": "Vpc",
+      "Properties": {
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": {
+              "Fn::Join": [
+                "-",
+                [
+                  {
+                    "Ref": "Name"
+                  },
+                  {
+                    "Ref": "Environment"
+                  },
+                  {
+                    "Fn::FindInMap": [
+                      "RegionMap",
+                      {
+                        "Ref": "AWS::Region"
+                      },
+                      "region"
+                    ]
+                  },
+                  "vpc-private-rt-1"
+                ]
+              ]
+            }
+          }
+        ],
+        "VpcId": {
+          "Ref": "Vpc"
+        }
+      },
+      "Type": "AWS::EC2::RouteTable"
+    },
+    "PrivateSubnet1RouteViaNAT": {
+      "DependsOn": [
+        "RouteViaNAT1",
+        "NatGateway1"
+      ],
+      "Type": "AWS::EC2::Route",
+      "Properties": {
+        "RouteTableId": {
+          "Ref": "RouteViaNAT1"
+        },
+        "DestinationCidrBlock": "0.0.0.0/0",
+        "NatGatewayId": {
+          "Ref": "NatGateway1"
+        }
+      }
+    },
+    "PrivateSubnet1RouteTableAssociation": {
+      "DependsOn": [
+        "PrivateSubnet1",
+        "PrivateSubnet1RouteViaNAT"
+      ],
+      "Properties": {
+        "RouteTableId": {
+          "Ref": "RouteViaNAT1"
+        },
+        "SubnetId": {
+          "Ref": "PrivateSubnet1"
+        }
+      },
+      "Type": "AWS::EC2::SubnetRouteTableAssociation"
+    },
+    "RouteViaNAT2": {
+      "DependsOn": "Vpc",
+      "Properties": {
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": {
+              "Fn::Join": [
+                "-",
+                [
+                  {
+                    "Ref": "Name"
+                  },
+                  {
+                    "Ref": "Environment"
+                  },
+                  {
+                    "Fn::FindInMap": [
+                      "RegionMap",
+                      {
+                        "Ref": "AWS::Region"
+                      },
+                      "region"
+                    ]
+                  },
+                  "vpc-private-rt-2"
+                ]
+              ]
+            }
+          }
+        ],
+        "VpcId": {
+          "Ref": "Vpc"
+        }
+      },
+      "Type": "AWS::EC2::RouteTable"
+    },
+    "PrivateSubnet2RouteViaNAT": {
+      "DependsOn": [
+        "RouteViaNAT2",
+        "NatGateway2"
+      ],
+      "Type": "AWS::EC2::Route",
+      "Properties": {
+        "RouteTableId": {
+          "Ref": "RouteViaNAT2"
+        },
+        "DestinationCidrBlock": "0.0.0.0/0",
+        "NatGatewayId": {
+          "Ref": "NatGateway2"
+        }
+      }
+    },
+    "PrivateSubnet2RouteTableAssociation": {
+      "DependsOn": [
+        "PrivateSubnet2",
+        "PrivateSubnet2RouteViaNAT"
+      ],
+      "Properties": {
+        "RouteTableId": {
+          "Ref": "RouteViaNAT2"
+        },
+        "SubnetId": {
+          "Ref": "PrivateSubnet2"
+        }
+      },
+      "Type": "AWS::EC2::SubnetRouteTableAssociation"
+    },
+    "RouteViaNAT3": {
+      "DependsOn": "Vpc",
+      "Properties": {
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": {
+              "Fn::Join": [
+                "-",
+                [
+                  {
+                    "Ref": "Name"
+                  },
+                  {
+                    "Ref": "Environment"
+                  },
+                  {
+                    "Fn::FindInMap": [
+                      "RegionMap",
+                      {
+                        "Ref": "AWS::Region"
+                      },
+                      "region"
+                    ]
+                  },
+                  "vpc-private-rt-3"
+                ]
+              ]
+            }
+          }
+        ],
+        "VpcId": {
+          "Ref": "Vpc"
+        }
+      },
+      "Type": "AWS::EC2::RouteTable"
+    },
+    "PrivateSubnet3RouteViaNAT": {
+      "DependsOn": [
+        "RouteViaNAT3",
+        "NatGateway3"
+      ],
+      "Type": "AWS::EC2::Route",
+      "Properties": {
+        "RouteTableId": {
+          "Ref": "RouteViaNAT3"
+        },
+        "DestinationCidrBlock": "0.0.0.0/0",
+        "NatGatewayId": {
+          "Ref": "NatGateway3"
+        }
+      }
+    },
+    "PrivateSubnet3RouteTableAssociation": {
+      "DependsOn": [
+        "PrivateSubnet3",
+        "PrivateSubnet3RouteViaNAT"
+      ],
+      "Properties": {
+        "RouteTableId": {
+          "Ref": "RouteViaNAT3"
+        },
+        "SubnetId": {
+          "Ref": "PrivateSubnet3"
+        }
+      },
+      "Type": "AWS::EC2::SubnetRouteTableAssociation"
+    },
+    "FlowLogsGroup": {
+      "DependsOn": [
+        "Vpc"
+      ],
+      "Type": "AWS::Logs::LogGroup",
+      "Properties": {
+        "LogGroupName": {
+          "Fn::Join": [
+            "",
+            [
+              "VPC/",
+              {
+                "Ref": "Name"
+              },
+              "-",
+              {
+                "Ref": "Environment"
+              },
+              "-",
+              {
+                "Fn::FindInMap": [
+                  "RegionMap",
+                  {
+                    "Ref": "AWS::Region"
+                  },
+                  "region"
+                ]
+              },
+              "-vpc-loggroup"
+            ]
+          ]
+        },
+        "RetentionInDays": 30
+      }
+    },
+    "VpcFlowLog": {
+      "DependsOn": [
+        "FlowLogsGroup"
+      ],
+      "Type": "AWS::EC2::FlowLog",
+      "Properties": {
+        "DeliverLogsPermissionArn": {
+          "Fn::If": [
+            "CreateVpcFlowLogRole",
+            {
+              "Fn::GetAtt": [
+                "FlowlogRole",
+                "Arn"
+              ]
+            },
+            {
+              "Ref": "RoleArn"
+            }
+          ]
+        },
+        "LogGroupName": {
+          "Ref": "FlowLogsGroup"
+        },
+        "ResourceId": {
+          "Ref": "Vpc"
+        },
+        "ResourceType": "VPC",
+        "TrafficType": "ALL"
+      }
+    },
+    "FlowlogRole": {
+      "Condition": "CreateVpcFlowLogRole",
+      "DependsOn": "Vpc",
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "RoleName": "VpcFlowlogsWriteAccess",
+        "AssumeRolePolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Sid": "VPCFlowLogs",
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "vpc-flow-logs.amazonaws.com"
+              },
+              "Action": "sts:AssumeRole"
+            }
+          ]
+        },
+        "Policies": [
+          {
+            "PolicyName": {
+              "Fn::Sub": "vpc-flowlogs-write-access-policy"
+            },
+            "PolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Action": [
+                    "logs:CreateLogGroup",
+                    "logs:CreateLogStream",
+                    "logs:DescribeLogGroups",
+                    "logs:DescribeLogStreams",
+                    "logs:PutLogEvents"
+                  ],
+                  "Effect": "Allow",
+                  "Resource": "*"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "S3Endpoint": {
+      "DependsOn": [
+        "Vpc",
+        "RouteViaNAT1",
+        "RouteViaNAT2",
+        "RouteViaNAT3"
+      ],
+      "Type": "AWS::EC2::VPCEndpoint",
+      "Properties": {
+        "PolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": "*",
+              "Action": "*",
+              "Resource": "*"
+            }
+          ]
+        },
+        "RouteTableIds": [
+          {
+            "Ref": "RouteViaNAT1"
+          },
+          {
+            "Ref": "RouteViaNAT2"
+          },
+          {
+            "Ref": "RouteViaNAT3"
+          }
+        ],
+        "ServiceName": {
+          "Fn::Join": [
+            "",
+            [
+              "com.amazonaws.",
+              {
+                "Ref": "AWS::Region"
+              },
+              ".s3"
+            ]
+          ]
+        },
+        "VpcId": {
+          "Ref": "Vpc"
+        }
+      }
+    }
+  },
+  "Outputs": {
+    "VpcId": {
+      "Description": "The id of the VPC.",
+      "Value": {
+        "Ref": "Vpc"
+      },
+      "Export": {
+        "Name": {
+          "Fn::Sub": "${AWS::StackName}-Vpc-Id"
+        }
+      }
+    },
+    "VpcCidr": {
+      "Description": "The cidr of the VPC.",
+      "Value": {
+        "Fn::GetAtt": [
+          "Vpc",
+          "CidrBlock"
+        ]
+      },
+      "Export": {
+        "Name": {
+          "Fn::Sub": "${AWS::StackName}-VpcCidr"
+        }
+      }
+    },
+    "VpcFlowLogGroupName": {
+      "Description": "Name of the VPC flowlog group.",
+      "Value": {
+        "Ref": "FlowLogsGroup"
+      },
+      "Export": {
+        "Name": {
+          "Fn::Sub": "${AWS::StackName}-VpcLogGroupName"
+        }
+      }
+    },
+    "PublicRoute1Id": {
+      "Description": "The id of the Public Route Table 1.",
+      "Value": {
+        "Ref": "RouteViaIgw"
+      },
+      "Export": {
+        "Name": {
+          "Fn::Sub": "${AWS::StackName}-PublicRoute1-Id"
+        }
+      }
+    },
+    "PrivateRoute1Id": {
+      "Description": "The id of the Private Route Table 1.",
+      "Value": {
+        "Ref": "RouteViaNAT1"
+      },
+      "Export": {
+        "Name": {
+          "Fn::Sub": "${AWS::StackName}-PrivateRoute1-Id"
+        }
+      }
+    },
+    "PrivateRoute2Id": {
+      "Description": "The id of the Private Route Table 2.",
+      "Value": {
+        "Ref": "RouteViaNAT2"
+      },
+      "Export": {
+        "Name": {
+          "Fn::Sub": "${AWS::StackName}-PrivateRoute2-Id"
+        }
+      }
+    },
+    "PrivateRoute3Id": {
+      "Description": "The id of the Private Route Table 3.",
+      "Value": {
+        "Ref": "RouteViaNAT3"
+      },
+      "Export": {
+        "Name": {
+          "Fn::Sub": "${AWS::StackName}-PrivateRoute3-Id"
+        }
+      }
+    },
+    "PublicSubnet1Id": {
+      "Description": "The id of the public subnet 1.",
+      "Value": {
+        "Ref": "PublicSubnet1"
+      },
+      "Export": {
+        "Name": {
+          "Fn::Sub": "${AWS::StackName}-PublicSubnet1-Id"
+        }
+      }
+    },
+    "PublicSubnet2Id": {
+      "Description": "The id of the public subnet 2.",
+      "Value": {
+        "Ref": "PublicSubnet2"
+      },
+      "Export": {
+        "Name": {
+          "Fn::Sub": "${AWS::StackName}-PublicSubnet2-Id"
+        }
+      }
+    },
+    "PublicSubnet3Id": {
+      "Description": "The id of the public subnet 3.",
+      "Value": {
+        "Ref": "PublicSubnet3"
+      },
+      "Export": {
+        "Name": {
+          "Fn::Sub": "${AWS::StackName}-PublicSubnet3-Id"
+        }
+      }
+    },
+    "PublicSubnet1Cidr": {
+      "Description": "The cidr of the public subnet 1.",
+      "Value": {
+        "Ref": "PublicSubnet1Cidr"
+      },
+      "Export": {
+        "Name": {
+          "Fn::Sub": "${AWS::StackName}-PublicSubnet1-Cidr"
+        }
+      }
+    },
+    "PublicSubnet2Cidr": {
+      "Description": "The cidr of the public subnet 2.",
+      "Value": {
+        "Ref": "PublicSubnet2Cidr"
+      },
+      "Export": {
+        "Name": {
+          "Fn::Sub": "${AWS::StackName}-PublicSubnet2-Cidr"
+        }
+      }
+    },
+    "PublicSubnet3Cidr": {
+      "Description": "The cidr of the public subnet 3.",
+      "Value": {
+        "Ref": "PublicSubnet3Cidr"
+      },
+      "Export": {
+        "Name": {
+          "Fn::Sub": "${AWS::StackName}-PublicSubnet3-Cidr"
+        }
+      }
+    },
+    "PrivateSubnet1Id": {
+      "Description": "The id of the private subnet 1.",
+      "Value": {
+        "Ref": "PrivateSubnet1"
+      },
+      "Export": {
+        "Name": {
+          "Fn::Sub": "${AWS::StackName}-PrivateSubnet1-Id"
+        }
+      }
+    },
+    "PrivateSubnet2Id": {
+      "Description": "The id of the private subnet 2.",
+      "Value": {
+        "Ref": "PrivateSubnet2"
+      },
+      "Export": {
+        "Name": {
+          "Fn::Sub": "${AWS::StackName}-PrivateSubnet2-Id"
+        }
+      }
+    },
+    "PrivateSubnet3Id": {
+      "Description": "The id of the private subnet 3.",
+      "Value": {
+        "Ref": "PrivateSubnet3"
+      },
+      "Export": {
+        "Name": {
+          "Fn::Sub": "${AWS::StackName}-PrivateSubnet3-Id"
+        }
+      }
+    },
+    "PrivateSubnet1Cidr": {
+      "Description": "The cidr of the private subnet 1.",
+      "Value": {
+        "Ref": "PrivateSubnet1Cidr"
+      },
+      "Export": {
+        "Name": {
+          "Fn::Sub": "${AWS::StackName}-PrivateSubnet1-Cidr"
+        }
+      }
+    },
+    "PrivateSubnet2Cidr": {
+      "Description": "The cidr of the private subnet 2.",
+      "Value": {
+        "Ref": "PrivateSubnet2Cidr"
+      },
+      "Export": {
+        "Name": {
+          "Fn::Sub": "${AWS::StackName}-PrivateSubnet2-Cidr"
+        }
+      }
+    },
+    "PrivateSubnet3Cidr": {
+      "Description": "The cidr of the private subnet 3.",
+      "Value": {
+        "Ref": "PrivateSubnet3Cidr"
+      },
+      "Export": {
+        "Name": {
+          "Fn::Sub": "${AWS::StackName}-PrivateSubnet3-Cidr"
+        }
+      }
+    }
+  }
+}

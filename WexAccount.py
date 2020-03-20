@@ -471,7 +471,7 @@ class WexAccount:
 
 
 if __name__ == '__main__':
-    wex = WexAccount(Namespace(logging='DEBUG'), "wex-prod")
+    wex = WexAccount(Namespace(logging='DEBUG'), "wex-189106039250")
     endpoint = wex.data['resolver-endpoints']['us-east-1'][0]
     wex.is_resolver_endpoint_valid('us-east-1', endpoint)
 
