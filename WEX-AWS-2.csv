@@ -1,0 +1,40 @@
+Account Id,Hosted Zone Name (Hosted Zone Id)
+544308222195,custodian.ue1.wexglobal.com (ZCXUQ1SY8YKOZ)
+798229301220,stage.wexauthgateway.com (Z08915782JQV0VLCIHV3L)
+850888304359,prod.wexauthgateway.com (Z09133392S6TH3JHK6BC8)
+916323310711,n/a
+530858626636,efsfactprod.ue1.wexglobal.com (Z0266955MYBAORAHC601)
+562473521844,efsfactstage.ue1.wexglobal.com (Z028996429P4I061UG4O8)
+670359605555,"efsqa.ue1.wexglobal.com (Z242ZIU32R9OAO), efsqa.uw2.wexglobal.com (Z0129944CG1F4QZKFABO)"
+468788556922,efsfactdev.ue1.wexglobal.com (Z02891962F2OD11NDWZJ)
+458073319202,"ifcsdemo.ec1.wexglobal.com (Z1ZA5RUYQ5J40F), ifcsdemo.ae1.wexglobal.com (Z06309682ALY1O5OT180J)"
+198895985159,"coreservicesstage.ec1.wexglobal.com (Z155V2FTLAFTQ1), coreservicesstage.ue1.wexglobal.com (Z02695542I8LYZC07GPVN)"
+777771715541,securecorestage.ue1.wexglobal.com (ZYK3AXJ0A346Y)
+856173946161,"dev.encompass-suite.com (Z01588221RBN2GQ3RLMY3), dev.encprimary.com (Z095210411JXP2M7A845W)"
+231054206332,n/a
+394423470622,n/a
+344287180399,"qa.encompass-suite.com (Z01577682U692WXHVQUPA), qa.encprimary.com (Z053240527YK9P3LOLX65)"
+60158238077,"corpappprod.uw2.wexglobal.com (Z098141817T56P78IRH78), corpappprod.ue1.wexglobal.com (Z04479852V7PZWPSVFJ4Y)"
+61074915931,"corporateapplicationsstage.uw2.wexglobal.com (Z1C4EV38XH2KIG), corporateapplicationsstage.ue1.wexglobal.com (Z27L2VJL7IWF8E), corpappstage.uw2.wexglobal.com (Z09816802NSNSCWB1LOCG), corpappstage.ec1.wexglobal.com (Z0942507N1ORXP12JW3C)"
+653773018141,"corporateapplicationsdev.ue1.wexglobal.com (Z2Q3AL51ESQO73), corpappdev.ue1.wexglobal.com (Z03508163VHUSA32A35R3)"
+701634685704,audev.ae2.wexglobal.com (Z0262210382GGNBEQ84PW)
+917021531449,austage.ae2.wexglobal.com (Z02703322SRO6AU87MKK4)
+86067123714,"myprepaidcard.com.au (Z078771831JVKW99DO9ZZ), giftvoucher.com.au (Z078752727Q89POV6CVWC), giftvouchers.co.nz (Z0787354SXKFU11M1E8A), ecomindustries.com.au (Z0787558259Q0YN51Q76D), giftvoucher.com (Z078755768KS79LDPQ2V), giftvouchers.com.au (Z0787498ZEUFPJV7LMLS), wrightexpressprepaidcards.com.au (Z07872262IKNXF592AI4G), giftvouchers.com (Z07873842P9PF9GC8DBVE), everydaygiftcards.com.au (Z07872083B3JK2P2LSDE6), auprod.ae2.wexglobal.com (Z02698723JLB4GBOXES25)"
+582375829877,n/a
+141629566349,n/a
+216891028218,n/a
+696194787091,"efsdev.uw2.wexglobal.com (Z06068631P61OFHH7KF3Q), dev.efs.wexapps.com (Z06069412RNWD13ZORFD6)"
+865171255828,efsstage.ue1.wexglobal.com (Z01020232VZB9S9HG4YQ6)
+359381888955," efsprod.ue1.wexglobal.com (Z010138511JQ8EWCW0V7V), prod.efs.wexapps.com (Z08765941Y2N96G2Z7DO4), efsprod.uw2.wexglobal.com (Z1038126394JXR2CU9TOZ)"
+229349022034,n/a
+624605891401,n/a
+801350856922,n/a
+296692852279,"fleeteuropedev.ec1.wexglobal.com (Z07575731REIJ87QYT9N3), fleeteuropeqa.ec1.wexglobal.com(Z07572943A082XIRY4U2N)"
+669859114953,"fleeteuropestage.ec1.wexglobal.com (Z02726021QRQTVE61ETMR), fleeteuropeuat.ec1.wexglobal.com (Z0272389CNW1826M8YVN)"
+960123273679,"fleeteuropeprod.ec1.wexglobal.com (Z02713901FIJR3UX25T0T), fleeteuropeprodfix.ec1.wexglobal.com (Z02713913R2F97W9FZV77)"
+878976635263,n/a
+742350535154,"dev.noventis.cc (Z02349963VIAINTZ5HD7), dev.pd.wexcp.com (Z06221493D702GBCIZNUV)"
+737006878702,n/a
+8215700430,n/a
+994829481048,n/a
+950494077367,n/a

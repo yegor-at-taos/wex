@@ -10,16 +10,32 @@
         }
       ],
       "Infoblox": {
+        "OnPremZones": [
+          "prod.efs.com.",
+          "wexglobal.com.",
+          "wexapps.com.",
+          "wrightexpress.com.",
+          "wexcp.com.",
+          "internal.wexfleetweb.com.",
+          "wexprodr.wexglobal.com.",
+          "encprimary.com.",
+          "wexinc.com.",
+          "ad.wrightexpress.com."
+        ],
+        "OnPremResolverAddresses": [
+          "10.94.1.77",
+          "10.94.5.87",
+          "10.97.1.99",
+          "10.98.1.166"
+        ],
         "Accounts": {
-            "189106039250": {
-                "Description": "Manually added: coreservices-prod",
-                "OnPremResolverAddresses": [
-                  "10.94.1.77",
-                  "10.94.5.87",
-                  "10.97.1.99",
-                  "10.98.1.166"
-                ]
+          "672442290193": {
+            "Description": "TODO: Taos test account, roll back before pushing",
+            "HostedZones": {
+              "Z0458190SFTK1ZVG2T00": "test-two.private.",
+              "Z0457363S0M6ZBMN32LK": "test-one.private."
             }
+          }
         }
       },
       "Regions": {
@@ -45,6 +61,8 @@
         "ap-southeast-2": {
           "stack-name": "coreservices-prod-ue1-vpc-stk"
         }
+      },
+      "Outputs": {
       }
     }
   },

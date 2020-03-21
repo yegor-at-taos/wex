@@ -134,6 +134,15 @@ aws = {
             },
         }
 
+aws_region_limit = set([
+    'us-east-1',
+    'us-west-2',
+    'eu-central-1',
+    'eu-west-1',
+    'ap-southeast-1',
+    'ap-southeast-2',
+    ])
+
 
 class WexAccount:
     def __init__(self, args, profile):
@@ -298,7 +307,7 @@ class WexAccount:
                     self.data[name] = self.aws_items(args)
             else:
                 # collect data for all regions (minus unsupported)
-                regions = [
+                regions = set([
                         region['RegionName']
                         for region
                         in self.data['regions']
@@ -306,9 +315,9 @@ class WexAccount:
                         not in aws[name]
                         or region['RegionName']
                         not in aws[name]['skip-regions']
-                        ]
+                        ])
 
-                for region in regions:
+                for region in aws_region_limit.intersection(regions):
                     # TODO avoid copy/paste, make it a table lookup
                     if name in [
                             'resolver-endpoint-ip-addresses',

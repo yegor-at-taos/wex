@@ -25,121 +25,97 @@ def import_value(wex_stack, resource):
             }
 
 def handler(event, context):
-    wex = event['fragment']['Mappings'].pop('Wex')
+    region = event['region']
 
-    # if no more 'Mappings' left delete section (this is optional)
-    if not event['fragment']['Mappings']:
-        event['fragment'].pop('Mappings')
+    wex = event['fragment']['Mappings'].pop('Wex')
 
     # allow append to existing 'Resources' section
     if 'Resources' not in event['fragment']:
         event['fragment']['Resources'] = dict()
 
     resources = event['fragment']['Resources']
+    outputs = event['fragment']['Outputs']
 
-    r53rule_template = {
-            'Type': 'AWS::Route53Resolver::ResolverRule',
-            'Properties':
-            {
-                'DomainName': None,
-                'ResolverEndpointId': None,
-                'RuleType': 'FORWARD',
-                'TargetIps': [
-                    {
-                        'Ip': address,
-                        'Port': 53,
-                        }
-                    for address
-                    in wex['Infoblox']['Addresses']
-                    ],
-                'Tags': wex['Tags'],
-                },
-            }
+    if region not in wex['Regions']:
+        return {
+                'requestId': event['requestId'],
+                'status': 'FAILURE',
+                }
 
-    r53ruleassoc_template = {
-            'Type': 'AWS::Route53Resolver::ResolverRuleAssociation',
+    wex_stack = wex['Regions'][region]['stack-name']
+
+    sg_in_id = mk_id(['rrInSG', region, wex_stack])
+    resources[sg_in_id] = {
+            'Type': 'AWS::EC2::SecurityGroup',
             'Properties': {
-                'ResolverRuleId': None,
-                'VpcId': None,
-                'Tags': wex['Tags'],
+                'GroupDescription': 'Incoming DNS over IPv4',
+                'VpcId': import_value(wex_stack, 'Vpc-Id'),
+                'SecurityGroupIngress': [
+                    {
+                        'CidrIp': '0.0.0.0/0',
+                        'IpProtocol': 'udp',
+                        'FromPort': 53,
+                        'ToPort': 53,
+                        }
+                    ],
+                }
+            }
+
+    sg_out_id = mk_id(['rrOutSG', region[0], wex_stack])
+    resources[sg_out_id] = {
+            'Type': 'AWS::EC2::SecurityGroup',
+            'Properties': {
+                'GroupDescription': 'Outgoing DNS over IPv4',
+                'VpcId': import_value(wex_stack, 'Vpc-Id'),
+                }
+            }
+
+
+    ep_in_id = mk_id(['rrInEndpoint', region[0], wex_stack])
+    resources[ep_in_id] = {
+            'Type': 'AWS::Route53Resolver::ResolverEndpoint',
+            'Properties': {
+                'Direction': 'INBOUND',
+                'IpAddresses': [
+                    {
+                        'SubnetId': import_value(wex_stack, f'PublicSubnet{i+1}-Id')
+                        }
+                    for i
+                    in range(az_count)
+                    ],
+                'SecurityGroupIds': [
+                    {
+                        'Fn::GetAtt': [
+                            sg_in_id,
+                            'GroupId'
+                            ]
+                        }
+                    ],
                 },
             }
 
-    for region in wex['Regions'].items():
-        if event['region'] != region[0]:
-            continue
-
-        wex_stack = region[1]['stack-name']
-
-        sg_in_id = mk_id(['rrInSG', region[0], wex_stack])
-        resources[sg_in_id] = {
-                'Type': 'AWS::EC2::SecurityGroup',
-                'Properties': {
-                    'GroupDescription': 'Incoming DNS over IPv4',
-                    'VpcId': import_value(wex_stack, 'Vpc-Id'),
-                    'SecurityGroupIngress': [
-                        {
-                            'CidrIp': '0.0.0.0/0',
-                            'IpProtocol': 'udp',
-                            'FromPort': 53,
-                            'ToPort': 53,
-                            }
-                        ],
-                    }
-                }
-
-        sg_out_id = mk_id(['rrOutSG', region[0], wex_stack])
-        resources[sg_out_id] = {
-                'Type': 'AWS::EC2::SecurityGroup',
-                'Properties': {
-                    'GroupDescription': 'Outgoing DNS over IPv4',
-                    'VpcId': import_value(wex_stack, 'Vpc-Id'),
-                    }
-                }
-
-        resources[mk_id(['rrInEndpoint', region[0], wex_stack])] = {
-                'Type': 'AWS::Route53Resolver::ResolverEndpoint',
-                'Properties': {
-                    'Direction': 'INBOUND',
-                    'IpAddresses': [
-                        {
-                            'SubnetId': import_value(wex_stack, f'PublicSubnet{i+1}-Id')
-                            }
-                        for i
-                        in range(az_count)
-                        ],
-                    'SecurityGroupIds': [
-                        {
-                            'Fn::GetAtt': [
-                                sg_in_id,
-                                'GroupId'
-                                ]
-                            }
-                        ],
-                    },
-                }
-
-        resources[mk_id(['rrOutEndpoint', region[0], wex_stack])] = {
-                'Type': 'AWS::Route53Resolver::ResolverEndpoint',
-                'Properties': {
-                    'Direction': 'OUTBOUND',
-                    'IpAddresses': [
-                        {
-                            'SubnetId': import_value(wex_stack, f'PrivateSubnet{i+1}-Id')
-                            }
-                        for i
-                        in range(az_count)
-                        ],
-                    'SecurityGroupIds': [
-                        {
-                            'Fn::GetAtt': [
-                                sg_out_id,
-                                'GroupId'
-                                ]
-                            }
-                        ],
-                    },
-                }
+    ep_out_id = mk_id(['rrOutEndpoint', region[0], wex_stack])
+    resources[ep_out_id] = {
+            'Type': 'AWS::Route53Resolver::ResolverEndpoint',
+            'Properties': {
+                'Direction': 'OUTBOUND',
+                'IpAddresses': [
+                    {
+                        'SubnetId': import_value(wex_stack, f'PrivateSubnet{i+1}-Id')
+                        }
+                    for i
+                    in range(az_count)
+                    ],
+                'SecurityGroupIds': [
+                    {
+                        'Fn::GetAtt': [
+                            sg_out_id,
+                            'GroupId'
+                            ]
+                        }
+                    ],
+                },
+            }
 
     return {
             'requestId': event['requestId'],
@@ -161,11 +137,18 @@ if __name__ == '__main__':  # don't remove; processing stops at '^if\\s'
     args = parser.parse_args()
 
     if args.test:
-        for test in ['00']:  # TODO implement proper tests
-            with open(f'tests/{test}-event.json') as t:
-                event = json.load(t)
-            response = handler(event, None)
-            print(json.dumps(response))
+        with open(f'r53-test.json') as f:
+            event = {
+                    "accountId": "672442290193",
+                    "fragment": json.load(f),
+                    "transformId": "672442290193::wexRouteFiftyThreeMacro",
+                    "requestId": "f09bfa28-84da-4f59-9b32-cffa92e37f3a",
+                    "region": "us-west-2",
+                    "params": {},
+                    "templateParameterValues": {}
+                    }
+        response = handler(event, None)
+        print(json.dumps(response))
     elif args.make:
         data = dict()
         with open(args.csv) as csvfile:

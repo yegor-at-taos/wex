@@ -4,8 +4,10 @@ import csv
 import re
 import sys
 import json
+import glob
 
 import WexAccount
+import Unbound
 
 
 class WexAnalyzer:
@@ -13,28 +15,44 @@ class WexAnalyzer:
         self.args = args
         self.csv_writer = csv.writer(sys.stdout)
 
-    def import_csv(self):
-        csv_data = dict()
-        csv_name = dict()
-        with open(args.file) as csvfile:
+    def import_csv(self, csv_file_name):
+        csv_data, csv_name = dict(), dict()
+
+        with open(csv_file_name) as csvfile:
             for line in csv.reader(csvfile):
-                m = re.match('^(\\d+)', line[0])
+                m = re.match('^(\\d+)', line[0].strip())
                 if not m:
                     continue  # skip title line
+
                 acct = m.group(0)
+                if len(acct) != 12:
+                    acct = '0' * (12 - len(acct)) + acct
+
                 csv_data[acct] = set()
+
                 for zone in line[1].split(','):
                     zone = zone.strip()
-                    m = re.match('(Z[A-Z0-9]+)', zone)
+
+                    m = re.search('(Z[A-Z0-9]+)', zone)
                     if not m:
-                        continue
+                        continue  # ZoneId not found
 
-                    csv_data[acct].add(m.group(0))
+                    zone_id = m.group(0)
 
-                    # see if there's zone name in brackets: (...)
-                    n = re.search('\\((.*?)\\)', zone)
-                    if n:
-                        csv_name[m.group(0)] = f'csv: {n.group(0)}'
+                    csv_data[acct].add(zone_id)
+
+                    # auto-detect format: 1) 'id (name)' 2) 'name (id)'
+                    if re.search(f'\\(\\s*{zone_id}\\s*\)', zone):
+                        # format 2, ZoneId in brackets
+                        zone_name = re.sub('\\s*\\(.*', '', zone)
+                    else:
+                        # format 1, ZoneName in brackets
+                        zone_name = re.search('\\((.*?)\\)', zone).group(1)
+
+                    zone_name = re.sub('\\.$', '', zone_name)
+
+                    if zone_name:
+                        csv_name[m.group(0)] = f'csv: {zone_name}'
                     else:
                         csv_name[m.group(0)] = f'csv: UNKNOWN'
 
@@ -43,7 +61,14 @@ class WexAnalyzer:
         return (csv_data, csv_name)
 
     def generate(self):
-        csv_data, csv_name = self.import_csv()
+        unbound = Unbound.Unbound(self.args)
+
+        csv_data, csv_name = dict(), dict()
+
+        for csv_file in glob.glob(args.file):
+            s_data, s_name = self.import_csv(csv_file)
+            csv_data.update(s_data)
+            csv_name.update(s_name)
 
         with open('r53-template.json') as f:
             tmpl = json.load(f)
@@ -54,7 +79,7 @@ class WexAnalyzer:
                             'Description': 'Auto-generated',
                             'HostedZones': dict(
                                 [
-                                    [zone, csv_name[zone][6:-1]]
+                                    [zone, csv_name[zone][5:]]
                                     for zone
                                     in account[1]
                                     ]
@@ -69,6 +94,24 @@ class WexAnalyzer:
             self.generate()
             return
 
+        csv_data, csv_name = dict(), dict()
+
+        for csv_file in glob.glob(args.file):
+            s_data, s_name = self.import_csv(csv_file)
+            csv_data.update(s_data)
+            csv_name.update(s_name)
+
+        if self.args.accounts:
+            accounts = set([
+                    '253431644400',  # coreservices dev
+                    '189106039250',  # coreservices prod
+                    '198895985159',  # coreservices stage
+                    ])
+            accounts.update(csv_data.keys())
+            print('\n'.join(sorted(list(accounts))))
+            return
+
+
         self.csv_writer.writerow([
             'Account ID',
             'Hosted Zone',
@@ -76,9 +119,12 @@ class WexAnalyzer:
             'Diff: not in CSV',
             ])
 
-        csv_data, csv_name = self.import_csv()
-
         for csv_account_id in csv_data.keys():
+            if csv_account_id in [
+                    #'544308222195',
+                    '344287180399',
+                    ]:
+                continue
             aws_account = WexAccount.WexAccount(self.args,
                                                 'wex-' + csv_account_id)
 
@@ -119,12 +165,17 @@ class WexAnalyzer:
 
 parser = argparse.ArgumentParser()
 parser.add_argument("-f", "--file", type=str,
-                    help="WEX exported CSV",
-                    default="WEX AWS Private Zone's.csv")
+                    help="WEX exported CSV", default="WEX-AWS-?.csv")
 parser.add_argument("-l", "--logging", type=str,
                     help="logging level", default="WARN")
 parser.add_argument("-g", "--generate", action='store_true',
-                    help="Generate config from CSV", default=True)
+                    help="Generate config from CSV", default=False)
+parser.add_argument("-a", "--accounts", action='store_true',
+                    help="Generate config from CSV", default=False)
+parser.add_argument("-u", "--unbound", type=str,
+                    help="Unbound networks", default="172.16.0.0/12,10.78.0.0/16")
+parser.add_argument("-p", "--path", type=str,
+                    help="Unbound configurations path", default="unbound")
 args = parser.parse_args()
 
 WexAnalyzer(args).run()

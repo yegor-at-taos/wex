@@ -130,3 +130,5 @@ dmypy.json
 
 # JSON production samples
 samples/
+WEX-AWS-Audit.csv
+aws.txt
