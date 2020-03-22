@@ -74,7 +74,7 @@ class Unbound:
                     self.data[zone['name']] = set()
                 self.data[zone['name']].update(zone['forward-addr'])
 
-    def unbound_zones(self):
+    def zones(self):
         value = set()
         # set arithmetic won't work as we have networks vs addresses
 

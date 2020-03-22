@@ -23,14 +23,12 @@ cleanup() {
 
 trap cleanup EXIT
 
-exit 0
+. create-or-update.bash
 
-# Make bucket if it doesn't exist
 if [[ $(aws --profile $profile --region $region s3api list-buckets \
-    | jq ".Buckets[] | select(.Name | test(\"$bucket\"))" \
-    | wc -l) -eq 0 ]]; then
+    | jq "[.Buckets[] | select(.Name == \"$bucket\")] | length") -eq 0 ]]; then
+    # this is workaround for the well-known bug in aws-cli
     if [[ $region = 'us-east-1' ]]; then
-        # this is workaround for the well-known bug in aws-cli
         aws --profile $profile --region $region s3api create-bucket \
             --acl authenticated-read --bucket $bucket
     else
@@ -46,16 +44,18 @@ fi
 aws --profile $profile --region $region s3 \
     cp $temp s3://$bucket/$temp
 
-jq "$json_addr.Code.S3Bucket = \"$bucket\"" \
-    | jq "$json_addr.Tags[0].LastUpdated = \"$(date)\"" r53-vpc.json > $json
+jq "$json_addr.Code.S3Bucket = \"$bucket\" |
+    $json_addr.Tags[0].Value = \"$(date --iso-8601=minutes)\"" \
+    r53-vpc.json > $json
 
-if [[ $(aws --profile $profile --region $region cloudformation list-stacks \
-    | jq ".StackSummaries[] | select(.StackName | test(\"$stack_name\"))" \
-    | wc -l) -eq 0 ]]; then
-    command='create'
-else
-    command='update'
-fi
+# WORKAROUND: 'update' won't update the Lambda function from S3
+while true; do
+    command=$(create_or_update $stack_name)
+    [[ $command = 'create' ]] && break
+    aws --profile $profile --region $region \
+        cloudformation delete-stack --stack-name $stack_name
+done
+
 
 aws --profile $profile --region $region cloudformation $command-stack \
     --stack-name $stack_name --template-body file://$json \

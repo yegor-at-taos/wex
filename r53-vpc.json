@@ -52,6 +52,38 @@
         "Principal": "cloudformation.amazonaws.com"
       }
     },
+    "VpcAutoAcceptFunction": {
+      "Type": "AWS::Lambda::Function",
+      "Properties": {
+        "Code": {
+          "ZipFile": {
+            "Fn::Join": [
+              "\n",
+              [
+                "import boto3",
+                "",
+                "def handler(event, context):",
+                "  print(event)",
+                "  return {",
+                "    'requestId': event['requestId'],",
+                "    'status': 'SUCCESS',",
+                "  }"
+              ]
+            ]
+          }
+        },
+        "FunctionName": "VpcAutoAcceptFunction",
+        "Handler": "index.handler",
+        "Runtime": "python3.7",
+        "Timeout": "10",
+        "Role": {
+          "Fn::GetAtt": [
+            "VpcTransformExecutionRole",
+            "Arn"
+          ]
+        }
+      }
+    },
     "VpcTransformFunction": {
       "Type": "AWS::Lambda::Function",
       "Properties": {
@@ -71,7 +103,8 @@
         },
         "Tags": [
           {
-            "LastUpdated": "AWS::NoValue"
+            "Key": "LastUpdatedTime",
+            "Value": "AWS::NoValue"
           }
         ]
       }

@@ -60,15 +60,8 @@ class WexAnalyzer:
                     del csv_data[acct]
         return (csv_data, csv_name)
 
-    def generate(self):
+    def generate(self, csv_data, csv_name):
         unbound = Unbound.Unbound(self.args)
-
-        csv_data, csv_name = dict(), dict()
-
-        for csv_file in glob.glob(args.file):
-            s_data, s_name = self.import_csv(csv_file)
-            csv_data.update(s_data)
-            csv_name.update(s_name)
 
         with open('r53-template.json') as f:
             tmpl = json.load(f)
@@ -76,7 +69,6 @@ class WexAnalyzer:
         for account in csv_data.items():
             tmpl['Mappings']['Wex']['Infoblox']['Accounts'] \
                     [account[0]] = {
-                            'Description': 'Auto-generated',
                             'HostedZones': dict(
                                 [
                                     [zone, csv_name[zone][5:]]
@@ -86,14 +78,13 @@ class WexAnalyzer:
                                 )
                             }
 
+        tmpl['Mappings']['Wex']['Infoblox']['OnPremZones'] = \
+                list(unbound.zones())
+
         print(json.dumps(tmpl, indent=2))
 
 
     def run(self):
-        if self.args.generate:
-            self.generate()
-            return
-
         csv_data, csv_name = dict(), dict()
 
         for csv_file in glob.glob(args.file):
@@ -101,7 +92,10 @@ class WexAnalyzer:
             csv_data.update(s_data)
             csv_name.update(s_name)
 
-        if self.args.accounts:
+        if self.args.generate:
+            self.generate(csv_data, csv_name)
+        elif self.args.accounts:
+            # used to generate access credentials
             accounts = set([
                     '253431644400',  # coreservices dev
                     '189106039250',  # coreservices prod
@@ -109,58 +103,57 @@ class WexAnalyzer:
                     ])
             accounts.update(csv_data.keys())
             print('\n'.join(sorted(list(accounts))))
-            return
-
-
-        self.csv_writer.writerow([
-            'Account ID',
-            'Hosted Zone',
-            'Diff: not in AWS',
-            'Diff: not in CSV',
-            ])
-
-        for csv_account_id in csv_data.keys():
-            if csv_account_id in [
-                    #'544308222195',
-                    '344287180399',
-                    ]:
-                continue
-            aws_account = WexAccount.WexAccount(self.args,
-                                                'wex-' + csv_account_id)
-
-            aws_pvt_zone = dict([
-                [re.sub('.*\\/', '', zone['Id']), zone['Name']]
-                for zone in aws_account.data['hosted-zones']
-                if zone['Config']['PrivateZone']
+        else:
+            # generate audit report
+            self.csv_writer.writerow([
+                'Account ID',
+                'Hosted Zone',
+                'Diff: not in AWS',
+                'Diff: not in CSV',
                 ])
 
-            self.csv_writer.writerow([csv_account_id])
+            for csv_account_id in csv_data.keys():
+                if csv_account_id in [
+                        #'544308222195',
+                        '344287180399',
+                        ]:
+                    continue
+                aws_account = WexAccount.WexAccount(self.args,
+                                                    'wex-' + csv_account_id)
 
-            all_set = csv_data[csv_account_id].union(aws_pvt_zone.keys())
-            aws_set = all_set - aws_pvt_zone.keys()
-            csv_set = all_set - csv_data[csv_account_id]
+                aws_pvt_zone = dict([
+                    [re.sub('.*\\/', '', zone['Id']), zone['Name']]
+                    for zone in aws_account.data['hosted-zones']
+                    if zone['Config']['PrivateZone']
+                    ])
 
-            all_list = sorted(list(all_set), reverse=True)
-            aws_list = sorted(list(aws_set), reverse=True)
-            csv_list = sorted(list(csv_set), reverse=True)
+                self.csv_writer.writerow([csv_account_id])
 
-            while True:
-                row = [None]
+                all_set = csv_data[csv_account_id].union(aws_pvt_zone.keys())
+                aws_set = all_set - aws_pvt_zone.keys()
+                csv_set = all_set - csv_data[csv_account_id]
 
-                if not all_list:
-                    break
+                all_list = sorted(list(all_set), reverse=True)
+                aws_list = sorted(list(aws_set), reverse=True)
+                csv_list = sorted(list(csv_set), reverse=True)
 
-                zone_id = all_list.pop()
+                while True:
+                    row = [None]
 
-                if zone_id in aws_pvt_zone:
-                    row.append(f'{zone_id} (aws: {aws_pvt_zone[zone_id]})')
-                else:
-                    row.append(f'{zone_id} ({csv_name[zone_id]})')
+                    if not all_list:
+                        break
 
-                row.append(aws_list.pop() if aws_list else None)
-                row.append(csv_list.pop() if csv_list else None)
+                    zone_id = all_list.pop()
 
-                self.csv_writer.writerow(row)
+                    if zone_id in aws_pvt_zone:
+                        row.append(f'{zone_id} (aws: {aws_pvt_zone[zone_id]})')
+                    else:
+                        row.append(f'{zone_id} ({csv_name[zone_id]})')
+
+                    row.append(aws_list.pop() if aws_list else None)
+                    row.append(csv_list.pop() if csv_list else None)
+
+                    self.csv_writer.writerow(row)
 
 
 parser = argparse.ArgumentParser()

@@ -59,7 +59,7 @@ def get_attr(resource_name, attribute_name):
             }
 
 def handler(event, context):
-    region = event['region']
+    region, shared_arns = event['region'], list()
 
     wex = event['fragment']['Mappings'].pop('Wex')
 
@@ -151,9 +151,9 @@ def handler(event, context):
             resources[opz_rule_id] = {
                     'Type': 'AWS::Route53Resolver::ResolverRule',
                     'Properties': {
+                        'RuleType': 'FORWARD',
                         'DomainName': zone,
-                        'Name': f'{zone}: on-prem zone',
-                        'ResolverEndpointId': ep_out_id,
+                        'ResolverEndpointId': get_attr(ep_out_id, 'ResolverEndpointId'),
                         'TargetIps': [
                             {
                                 'Ip': target_ip,
@@ -165,15 +165,52 @@ def handler(event, context):
                         },
                     }
 
+            shared_arns.append(get_attr(opz_rule_id, 'Arn'))
+
             opz_rule_assoc_id = mk_id(['rrOnPremZoneAssoc', zone, region[0], wex])
             resources[opz_rule_assoc_id] = {
                     'Type': 'AWS::Route53Resolver::ResolverRuleAssociation',
                     'Properties': {
-                        'Name': f'{zone}: on-prem zone association',
-                        'ResolverRuleId': opz_rule_id,
+                        'ResolverRuleId': get_attr(opz_rule_id, 'ResolverRuleId'),
                         'VPCId': import_value(event, wex, 'Vpc-Id'),
                         }
                     }
+
+    # Create Hosted rules for this account/region combination
+    if event['accountId'] in wex['Infoblox']['Accounts']:
+        account_data = wex['Infoblox']['Accounts'][event['accountId']]
+        if 'HostedZones' in account_data:
+            for zone in account_data['HostedZones'].items():
+                hz_rule_id = mk_id(['rrHostedZone', zone, region[0], wex])
+                resources[hz_rule_id] = {
+                        'Type': 'AWS::Route53Resolver::ResolverRule',
+                        'Properties': {
+                            'RuleType': 'SYSTEM',
+                            'DomainName': zone[1],
+                            },
+                        }
+
+                shared_arns.append(get_attr(hz_rule_id, 'Arn'))
+
+                hz_rule_assoc_id = mk_id(['rrHostedZoneAssoc', zone, region[0], wex])
+                resources[hz_rule_assoc_id] = {
+                        'Type': 'AWS::Route53Resolver::ResolverRuleAssociation',
+                        'Properties': {
+                            'ResolverRuleId': get_attr(hz_rule_id, 'ResolverRuleId'),
+                            'VPCId': import_value(event, wex, 'Vpc-Id'),
+                            }
+                        }
+
+    # Share created ResolverRule(s)
+    share_id = mk_id(['rrSharedRules', shared_arns, region[0], wex])
+    resources[share_id] = {
+            'Type': 'AWS::RAM::ResourceShare',
+            'Properties': {
+                'Name': 'Route53-Rules-Share',
+                'ResourceArns': shared_arns,
+                'Principals': list(wex['Infoblox']['Accounts'].keys()),
+                }
+            }
 
 
     return {
@@ -199,7 +236,7 @@ if __name__ == '__main__':  # don't remove; processing stops at '^if\\s'
     args = parser.parse_args()
 
     if args.test:
-        with open(f'r53-template.json') as f:
+        with open(f'tests/00-config.json') as f:
             event = {
                     "accountId": "544308222195",
                     "fragment": json.load(f),
@@ -234,11 +271,15 @@ if __name__ == '__main__':  # don't remove; processing stops at '^if\\s'
     else:
         keep_imports = [
                 'copy',
+                'json',
                 'hashlib',
                 're',
                 ]
 
-        script = []
+        script = [
+                datetime.datetime.now() \
+                        .strftime("# Timestamp: %Y/%m/%d %H:%M:%S")
+                ]
 
         with open(sys.argv[0]) as self:
             for line in self:

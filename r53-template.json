@@ -1,12 +1,12 @@
 {
   "AWSTemplateFormatVersion": "2010-09-09",
-  "Description": "WEX Inc., regional macro.",
+  "Description": "WEX Inc., Route 53 setup.",
   "Mappings": {
     "Wex": {
       "Tags": [
         {
           "Key": "Owner",
-          "Value": "ygorshkov@taos.com"
+          "Value": "yegor.gorshkov@wexinc.com"
         }
       ],
       "Infoblox": {
@@ -16,16 +16,7 @@
             "672442290193"
         ],
         "OnPremZones": [
-          "prod.efs.com.",
-          "wexglobal.com.",
-          "wexapps.com.",
-          "wrightexpress.com.",
-          "wexcp.com.",
-          "internal.wexfleetweb.com.",
-          "wexprodr.wexglobal.com.",
-          "encprimary.com.",
-          "wexinc.com.",
-          "ad.wrightexpress.com."
+          "zone.sample.com."
         ],
         "OnPremResolverIps": [
           "10.94.1.77",
@@ -34,13 +25,6 @@
           "10.98.1.166"
         ],
         "Accounts": {
-          "672442290193": {
-            "Description": "TODO: Taos test account, remove it",
-            "HostedZones": {
-              "Z0458190SFTK1ZVG2T00": "test-two.private.",
-              "Z0457363S0M6ZBMN32LK": "test-one.private."
-            }
-          }
         }
       },
       "Overrides": {
