@@ -10,6 +10,8 @@ fi
 
 bucket="wex-scripts-cloudformation-$region"
 script='VpcTransformFunction'
+stack_name='wexRouteFiftyThreeMacro'
+json_addr=".Resources.VpcTransformFunction.Properties"
 
 temp=$script.zip
 json=$(mktemp)
@@ -20,6 +22,8 @@ cleanup() {
 }
 
 trap cleanup EXIT
+
+exit 0
 
 # Make bucket if it doesn't exist
 if [[ $(aws --profile $profile --region $region s3api list-buckets \
@@ -42,12 +46,17 @@ fi
 aws --profile $profile --region $region s3 \
     cp $temp s3://$bucket/$temp
 
-# TODO: check if 'wexRouteFiftyThreeMacro' exists
-jq ".Resources.VpcTransformFunction.Properties.Code.S3Bucket = \"$bucket\"" \
-    r53-vpc.json > $json
+jq "$json_addr.Code.S3Bucket = \"$bucket\"" \
+    | jq "$json_addr.Tags[0].LastUpdated = \"$(date)\"" r53-vpc.json > $json
 
+if [[ $(aws --profile $profile --region $region cloudformation list-stacks \
+    | jq ".StackSummaries[] | select(.StackName | test(\"$stack_name\"))" \
+    | wc -l) -eq 0 ]]; then
+    command='create'
+else
+    command='update'
+fi
 
-aws --profile $profile --region $region cloudformation create-stack \
-    --stack-name wexRouteFiftyThreeMacro \
-    --template-body file://$json \
+aws --profile $profile --region $region cloudformation $command-stack \
+    --stack-name $stack_name --template-body file://$json \
     --capabilities CAPABILITY_IAM

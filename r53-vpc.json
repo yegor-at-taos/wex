@@ -68,7 +68,12 @@
             "VpcTransformExecutionRole",
             "Arn"
           ]
-        }
+        },
+        "Tags": [
+          {
+            "LastUpdated": "AWS::NoValue"
+          }
+        ]
       }
     },
     "Transform": {
