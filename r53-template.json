@@ -10,6 +10,11 @@
         }
       ],
       "Infoblox": {
+        "OnPremHub": [
+            "544308222195",
+            "189106039250",
+            "672442290193"
+        ],
         "OnPremZones": [
           "prod.efs.com.",
           "wexglobal.com.",
@@ -22,7 +27,7 @@
           "wexinc.com.",
           "ad.wrightexpress.com."
         ],
-        "OnPremResolverAddresses": [
+        "OnPremResolverIps": [
           "10.94.1.77",
           "10.94.5.87",
           "10.97.1.99",
@@ -30,7 +35,7 @@
         ],
         "Accounts": {
           "672442290193": {
-            "Description": "TODO: Taos test account, roll back before pushing",
+            "Description": "TODO: Taos test account, remove it",
             "HostedZones": {
               "Z0458190SFTK1ZVG2T00": "test-two.private.",
               "Z0457363S0M6ZBMN32LK": "test-one.private."
@@ -38,28 +43,34 @@
           }
         }
       },
+      "Overrides": {
+        "544308222195": {
+            "parent-stack-name": "Custodian-VPC",
+            "Resources": {
+                "Vpc-Id": "VpcId",
+                "PrivateSubnet1-Id": "@subnet-0a860dd075984960b",
+                "PrivateSubnet2-Id": "@subnet-028f92c3bf460e69b"
+            }
+        }
+      },
       "Regions": {
         "us-east-1": {
-          "stack-name": "coreservices-prod-ue1-vpc-stk",
-          "overrides": {
-            "comment": "Override values derived from the parent stack"
-          }
+          "parent-stack-name": "coreservices-prod-ue1-vpc-stk"
         },
         "us-west-2": {
-          "stack-name": "coreservices-prod-uw2-vpc-stk",
-          "overrides": "AWS::NoValue"
+          "parent-stack-name": "coreservices-prod-uw2-vpc-stk"
         },
         "eu-central-1": {
-          "stack-name": "coreservices-prod-ec1-vpc-stk"
+          "parent-stack-name": "coreservices-prod-ec1-vpc-stk"
         },
         "eu-west-1": {
-          "stack-name": "coreservices-prod-ew1-vpc-stk"
+          "parent-stack-name": "coreservices-prod-ew1-vpc-stk"
         },
         "ap-southeast-1": {
-          "stack-name": "coreservices-prod-ue1-vpc-stk"
+          "parent-stack-name": "coreservices-prod-ue1-vpc-stk"
         },
         "ap-southeast-2": {
-          "stack-name": "coreservices-prod-ue1-vpc-stk"
+          "parent-stack-name": "coreservices-prod-ue1-vpc-stk"
         }
       },
       "Outputs": {
@@ -68,5 +79,7 @@
   },
   "Transform": [
     "wexRouteFiftyThreeMacro"
-  ]
+  ],
+  "Outputs": {
+  }
 }

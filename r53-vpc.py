@@ -14,14 +14,48 @@ az_count = 2
 def mk_id(args):
     digest = hashlib.blake2b()
     for arg in args:
-        digest.update(bytes(arg, 'utf-8'))
+        digest.update(bytes(json.dumps(arg), 'utf-8'))
     return args[0] + digest.hexdigest()[-17:]
 
-def import_value(wex_stack, resource):
-    return {
+def import_value(event, wex_data, resource):
+    region, account_id = event['region'], event['accountId']
+
+    parent_stack_name = wex_data['Regions'][region]['parent-stack-name']
+
+    for overrides in [
+            overrides['Overrides']
+            for overrides
+            in [wex_data, wex_data['Regions'][event['region']]]
+            if 'Overrides' in overrides
+            ]:
+        if account_id not in overrides:
+            continue
+
+        overrides = overrides[account_id]
+
+        if 'parent-stack-name' in overrides:
+            parent_stack_name = overrides['parent-stack-name']
+
+        if 'Resources' in overrides:
+            overrides = overrides['Resources']
+            
+        if resource in overrides:
+            resource = overrides[resource]
+
+    value = resource[1:] if resource.startswith('@') else {
             'Fn::ImportValue' : {
-                'Fn::Sub': f'{wex_stack}-{resource}'
+                'Fn::Sub': f'{parent_stack_name}-{resource}'
                 }
+            }
+
+    return value
+
+def get_attr(resource_name, attribute_name):
+    return {
+            'Fn::GetAtt': [
+                resource_name,
+                attribute_name,
+                ]
             }
 
 def handler(event, context):
@@ -37,19 +71,19 @@ def handler(event, context):
     outputs = event['fragment']['Outputs']
 
     if region not in wex['Regions']:
+        # return error if created in unsupported region
         return {
                 'requestId': event['requestId'],
                 'status': 'FAILURE',
                 }
 
-    wex_stack = wex['Regions'][region]['stack-name']
-
-    sg_in_id = mk_id(['rrInSG', region, wex_stack])
+    # In Security Group
+    sg_in_id = mk_id(['rrInSG', region, wex])
     resources[sg_in_id] = {
             'Type': 'AWS::EC2::SecurityGroup',
             'Properties': {
                 'GroupDescription': 'Incoming DNS over IPv4',
-                'VpcId': import_value(wex_stack, 'Vpc-Id'),
+                'VpcId': import_value(event, wex, 'Vpc-Id'),
                 'SecurityGroupIngress': [
                     {
                         'CidrIp': '0.0.0.0/0',
@@ -61,61 +95,86 @@ def handler(event, context):
                 }
             }
 
-    sg_out_id = mk_id(['rrOutSG', region[0], wex_stack])
+    # Out Security Group
+    sg_out_id = mk_id(['rrOutSG', region[0], wex])
     resources[sg_out_id] = {
             'Type': 'AWS::EC2::SecurityGroup',
             'Properties': {
                 'GroupDescription': 'Outgoing DNS over IPv4',
-                'VpcId': import_value(wex_stack, 'Vpc-Id'),
+                'VpcId': import_value(event, wex, 'Vpc-Id'),
                 }
             }
 
 
-    ep_in_id = mk_id(['rrInEndpoint', region[0], wex_stack])
+    # In Resolver Endpoint
+    ep_in_id = mk_id(['rrInEndpoint', region[0], wex])
     resources[ep_in_id] = {
             'Type': 'AWS::Route53Resolver::ResolverEndpoint',
             'Properties': {
                 'Direction': 'INBOUND',
                 'IpAddresses': [
                     {
-                        'SubnetId': import_value(wex_stack, f'PublicSubnet{i+1}-Id')
+                        'SubnetId': import_value(event, wex, f'PrivateSubnet{i+1}-Id')
                         }
                     for i
                     in range(az_count)
                     ],
                 'SecurityGroupIds': [
-                    {
-                        'Fn::GetAtt': [
-                            sg_in_id,
-                            'GroupId'
-                            ]
-                        }
+                    get_attr(sg_in_id, 'GroupId'),
                     ],
                 },
             }
 
-    ep_out_id = mk_id(['rrOutEndpoint', region[0], wex_stack])
+    # Out Resolver Endpoint
+    ep_out_id = mk_id(['rrOutEndpoint', region[0], wex])
     resources[ep_out_id] = {
             'Type': 'AWS::Route53Resolver::ResolverEndpoint',
             'Properties': {
                 'Direction': 'OUTBOUND',
                 'IpAddresses': [
                     {
-                        'SubnetId': import_value(wex_stack, f'PrivateSubnet{i+1}-Id')
+                        'SubnetId': import_value(event, wex, f'PrivateSubnet{i+1}-Id')
                         }
                     for i
                     in range(az_count)
                     ],
                 'SecurityGroupIds': [
-                    {
-                        'Fn::GetAtt': [
-                            sg_out_id,
-                            'GroupId'
-                            ]
-                        }
+                    get_attr(sg_out_id, 'GroupId'),
                     ],
                 },
             }
+
+    # Create OnPrem rules if this is OnPremHub
+    if event['accountId'] in wex['Infoblox']['OnPremHub']:
+        for zone in wex['Infoblox']['OnPremZones']:
+            opz_rule_id = mk_id(['rrOnPremZone', zone, region[0], wex])
+            resources[opz_rule_id] = {
+                    'Type': 'AWS::Route53Resolver::ResolverRule',
+                    'Properties': {
+                        'DomainName': zone,
+                        'Name': f'{zone}: on-prem zone',
+                        'ResolverEndpointId': ep_out_id,
+                        'TargetIps': [
+                            {
+                                'Ip': target_ip,
+                                'Port': 53,
+                                }
+                            for target_ip
+                            in wex['Infoblox']['OnPremResolverIps']
+                            ],
+                        },
+                    }
+
+            opz_rule_assoc_id = mk_id(['rrOnPremZoneAssoc', zone, region[0], wex])
+            resources[opz_rule_assoc_id] = {
+                    'Type': 'AWS::Route53Resolver::ResolverRuleAssociation',
+                    'Properties': {
+                        'Name': f'{zone}: on-prem zone association',
+                        'ResolverRuleId': opz_rule_id,
+                        'VPCId': import_value(event, wex, 'Vpc-Id'),
+                        }
+                    }
+
 
     return {
             'requestId': event['requestId'],
@@ -127,19 +186,22 @@ def handler(event, context):
 if __name__ == '__main__':  # don't remove; processing stops at '^if\\s'
     parser = argparse.ArgumentParser()
     parser.add_argument("-m", "--make", action='store_true',
-                        help="Create r53-make.json from tmpl", default=False)
+                        help="Create r53-make.json from template",
+                        default=False)
     parser.add_argument("-t", "--test", action='store_true',
-                        help="Run tests; don't print", default=False)
+                        help="Run tests; don't print",
+                        default=False)
     parser.add_argument("-c", "--csv", type=str,
                         help="WEX Zones CSV", default="WEX AWS Private Zone's.csv")
-    # If nothing specified then sanitize Python and print
+
+    # If nothing is specified then sanitize Python and print
     # Use r53-vpc.bash to update it at AWS S3
     args = parser.parse_args()
 
     if args.test:
-        with open(f'r53-test.json') as f:
+        with open(f'r53-template.json') as f:
             event = {
-                    "accountId": "672442290193",
+                    "accountId": "544308222195",
                     "fragment": json.load(f),
                     "transformId": "672442290193::wexRouteFiftyThreeMacro",
                     "requestId": "f09bfa28-84da-4f59-9b32-cffa92e37f3a",
@@ -198,21 +260,3 @@ if __name__ == '__main__':  # don't remove; processing stops at '^if\\s'
                 script.append(line)
 
         print('\n'.join(script))
-
-        exit(0)
-
-        with open(re.sub('\\.py$', '.json', sys.argv[0])) as f:
-            tmpl = json.load(f)
-
-        function = tmpl['Resources']['VpcTransformFunction']
-        function['Properties']['Code']['ZipFile'] = {
-                'Fn::Join': [ '\n', script ]
-                }
-        function['Properties']['Tags'] = [
-                {
-                    'Key': 'Timestamp',
-                    'Value': f'{datetime.datetime.now()}',
-                    }
-                ]
-
-        print(json.dumps(tmpl, separators=(',', ':')))
