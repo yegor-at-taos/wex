@@ -61,13 +61,23 @@
               "\n",
               [
                 "import boto3",
+                "import json",
                 "",
                 "def handler(event, context):",
-                "  print(event)",
-                "  return {",
-                "    'requestId': event['requestId'],",
-                "    'status': 'SUCCESS',",
-                "  }"
+                "  print(json.dumps(event))",
+                "  if 'PhysicalResourceId' in event:",
+                "    phy_id = event['PhysicalResourceId']",
+                "  else:",
+                "    phy_id = 'resourceSharePhysicalResourceId'",
+                "  reply = {",
+                "    'Status': 'SUCCESS',",
+                "    'PhysicalResourceId': phy_id,",
+                "    'StackId': event['StackId'],",
+                "    'RequestId': event['RequestId'],",
+                "    'LogicalResourceId': event['LogicalResourceId'],",
+                "  }",
+                "  print(json.dumps(reply))",
+                "  return reply"
               ]
             ]
           }
@@ -121,5 +131,19 @@
         }
       }
     }
+  },
+  "Outputs": {
+      "R53AutoAcceptLambda": {
+          "Description": "Cross-account share auto-accept",
+          "Value": {
+              "Fn::GetAtt": [
+                  "VpcAutoAcceptFunction",
+                  "Arn"
+              ]
+          },
+          "Export": {
+              "Name": "VpcAutoAcceptFunction-Arn"
+          }
+      }
   }
 }

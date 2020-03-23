@@ -22,7 +22,11 @@ trap cleanup EXIT
 
 . create-or-update.bash
 
-./csv-audit.py --generate > $json
+if [[ -f stack-mock.json ]]; then
+    cp stack-mock.json $json
+else
+    ./csv-audit.py --generate > $json
+fi
 
 if [[ $(aws --profile $profile --region $region cloudformation list-stacks \
     | jq "[.StackSummaries[]

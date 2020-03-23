@@ -202,16 +202,28 @@ def handler(event, context):
                         }
 
     # Share created ResolverRule(s)
+    principals = set(wex['Infoblox']['Accounts']) - set([event['accountId']])
     share_id = mk_id(['rrSharedRules', shared_arns, region[0], wex])
     resources[share_id] = {
             'Type': 'AWS::RAM::ResourceShare',
             'Properties': {
                 'Name': 'Route53-Rules-Share',
                 'ResourceArns': shared_arns,
-                'Principals': list(wex['Infoblox']['Accounts'].keys()),
+                'Principals': list(principals)
                 }
             }
 
+    aa_id = mk_id(['aaCustom', region[0], wex])
+    resources[aa_id] = {
+            'Type': 'AWS::CloudFormation::CustomResource',
+            'Properties': {
+                'ServiceToken': {
+                    'Fn::ImportValue': 'VpcAutoAcceptFunction-Arn'
+                    },
+                'ResourceShareArn': get_attr(share_id, 'Arn'),
+                'Principals': list(principals),
+                }
+            }
 
     return {
             'requestId': event['requestId'],
