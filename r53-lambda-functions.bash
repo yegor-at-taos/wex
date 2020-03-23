@@ -9,16 +9,15 @@ else
 fi
 
 bucket="wex-scripts-cloudformation-$region"
-script='VpcTransformFunction'
 stack_name='wexRouteFiftyThreeMacro'
-json_addr=".Resources.VpcTransformFunction.Properties"
+json_source='r53-lambda-functions.json'
 
-temp=$script.zip
-json=$(mktemp)
+
+json=$(mktemp -u --suffix='.json')
 
 cleanup() {
     trap - EXIT
-    rm -f $temp $json
+    rm -f *.zip $json $json.swap
 }
 
 trap cleanup EXIT
@@ -39,16 +38,30 @@ if [[ $(aws --profile $profile --region $region s3api list-buckets \
     fi
 fi
 
-./r53-vpc.py > $script.py; zip -9m $script.zip $script.py
+cp $json_source $json
 
-aws --profile $profile --region $region s3 \
-    cp $temp s3://$bucket/$temp
+for script in VpcAutoAcceptFunction VpcTransformFunction; do
+    flake8 $script.py
 
-jq "$json_addr.Code.S3Bucket = \"$bucket\" |
-    $json_addr.Tags[0].Value = \"$(date --iso-8601=minutes)\"" \
-    r53-vpc.json > $json
+    if [[ ! $? ]]; then
+        echo Flake8 returns an error\; please fix your Python code.
+        exit 1
+    fi
 
-# WORKAROUND: 'update' won't update the Lambda function from S3
+    zip -9 $script.zip $script.py
+
+    aws --profile $profile --region $region s3 \
+        cp $script.zip s3://$bucket
+
+    json_addr=".Resources.$script.Properties"
+
+    cp $json $json.swap ; sync ; ls -l $json.swap
+
+    cat $json.swap | jq "$json_addr.Code.S3Bucket = \"$bucket\" |
+        $json_addr.Tags[0].Value = \"$(date --iso-8601=minutes)\"" > $json
+done
+
+# WORKAROUND: 'update' won't update the S3 Lambda function
 while true; do
     command=$(create_or_update $stack_name)
     [[ $command = 'create' ]] && break
