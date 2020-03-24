@@ -11,7 +11,7 @@ fi
 prereq_name="wexRouteFiftyThreeMacro"
 stack_name="wex-cloudformation-route53-stack-$region"
 
-json=$(mktemp)
+json=$(mktemp -u --suffix='.json')
 
 cleanup() {
     trap - EXIT
@@ -22,8 +22,8 @@ trap cleanup EXIT
 
 . create-or-update.bash
 
-if [[ -f stack-mock.json ]]; then
-    cp stack-mock.json $json
+if [[ -f mock/stack-mock.json ]]; then
+    cp mock/stack-mock.json $json
 else
     ./csv-audit.py --generate > $json
 fi
@@ -35,8 +35,8 @@ if [[ $(aws --profile $profile --region $region cloudformation list-stacks \
     exit 1
 fi
 
-command=$(create_or_update $stack_name)
-
-aws --profile $profile --region $region cloudformation $command-stack \
-    --stack-name $stack_name --template-body file://$json \
+aws --profile $profile --region $region \
+    cloudformation $(create_or_update $stack_name)-stack \
+    --stack-name $stack_name \
+    --template-body file://$json \
     --capabilities CAPABILITY_IAM CAPABILITY_AUTO_EXPAND

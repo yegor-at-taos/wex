@@ -1,4 +1,5 @@
 #!/usr/bin/python3
+import boto3
 import json
 import logging
 import urllib3
@@ -14,6 +15,18 @@ def handler(event, context):
     try:
         if event["RequestType"] == "Create":
             logger.debug('Processing Create')
+
+            sts_connection = boto3.client('sts')
+            peer = sts_connection.assume_role(
+                RoleArn=event['ResourceShareArn']
+                RoleSessionName="cross_acct_lambda"
+            )
+
+            client = boto3.client('ram',
+                aws_access_key_id=peer['Credentials']['AccessKeyId'],
+                aws_secret_access_key=peer['Credentials']['SecretAccessKey'],
+                aws_session_token=peer['Credentials']['SessionToken']
+            )
 
         elif event["RequestType"] == "Delete":
             pass

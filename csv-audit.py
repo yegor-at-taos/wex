@@ -63,7 +63,7 @@ class WexAnalyzer:
     def generate(self, csv_data, csv_name):
         unbound = Unbound.Unbound(self.args)
 
-        with open('r53-template.json') as f:
+        with open('r53-stack.json') as f:
             tmpl = json.load(f)
 
         for account in csv_data.items():
@@ -158,7 +158,7 @@ class WexAnalyzer:
 
 parser = argparse.ArgumentParser()
 parser.add_argument("-f", "--file", type=str,
-                    help="WEX exported CSV", default="WEX-AWS-?.csv")
+                    help="WEX exported CSV", default="infra/WEX-AWS-?.csv")
 parser.add_argument("-l", "--logging", type=str,
                     help="logging level", default="WARN")
 parser.add_argument("-g", "--generate", action='store_true',
@@ -168,7 +168,7 @@ parser.add_argument("-a", "--accounts", action='store_true',
 parser.add_argument("-u", "--unbound", type=str,
                     help="Unbound networks", default="172.16.0.0/12,10.78.0.0/16")
 parser.add_argument("-p", "--path", type=str,
-                    help="Unbound configurations path", default="unbound")
+                    help="Unbound configurations path", default="infra/unbound")
 args = parser.parse_args()
 
 WexAnalyzer(args).run()
