@@ -18,8 +18,8 @@ def handler(event, context):
 
             sts_connection = boto3.client('sts')
             peer = sts_connection.assume_role(
-                RoleArn=event['ResourceShareArn']
-                RoleSessionName="cross_acct_lambda"
+                RoleArn=event['ResourceShareArn'],
+                RoleSessionName='cross_acct_lambda'
             )
 
             client = boto3.client('ram',

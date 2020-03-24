@@ -2,7 +2,7 @@
   "AWSTemplateFormatVersion": "2010-09-09",
   "Description": "WEX Inc., AWS Lambda tools Role.",
   "Resources": {
-    "CloudFormationLambdaUtilsRole": {
+    "LambdaUtilsRole": {
       "Type": "AWS::IAM::Role",
       "Properties": {
         "AssumeRolePolicyDocument": {
@@ -47,16 +47,16 @@
     }
   },
   "Outputs": {
-    "CloudFormationLambdaUtilsRole": {
+    "LambdaUtilsRole": {
       "Description": "IAM Role for CloudFormation Lambda Utils",
       "Value": {
         "Fn::GetAtt": [
-          "CloudFormationLambdaUtilsRole",
+          "LambdaUtilsRole",
           "Arn"
         ]
       },
       "Export": {
-        "Name": "CloudFormationLambdaUtilsRole"
+        "Name": "LambdaUtilsRole"
       }
     }
   }
