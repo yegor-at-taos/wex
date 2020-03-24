@@ -1,25 +1,19 @@
 #!/bin/bash
-set -o errexit -o pipefail -o nounset -o noglob
 
 . shell-utils.bash
 
 root="$account_name-lambda-utils-permissions"
-json_source='json/lambda-utils-permissions.json'
+stack="$root-$short_region-stk"
 
 json=$(mktemp -u --suffix='.json')
-
-cleanup() {
-    trap - EXIT
-    rm -f *.zip $json $json.swap
-}
-trap cleanup EXIT
+remove_on_exit $json
 
 # Process 'json_source' -> 'json'
+json_source='json/lambda-utils-permissions.json'
 json_addr='.Resources.LambdaUtilsRole.Properties'
-cat $json_source | \
-    jq "$json_addr.Tags[0].Value = \"$(date --iso-8601=minutes)\"" > $json
 
-stack="$root-$short_region-stk"
+jq "$json_addr.Tags[0].Value = \"$(date --iso-8601=minutes)\"" \
+    $json_source > $json
 
 aws --profile wex-$profile --region $region \
     cloudformation $(create_or_update $stack)-stack \

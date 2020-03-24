@@ -1,5 +1,4 @@
 #!/bin/bash
-set -o errexit -o pipefail -o nounset -o noglob
 
 . shell-utils.bash
 
@@ -7,13 +6,7 @@ root="$account_name-cloudformation-lambda-utils-functions"
 json_source='json/lambda-utils-objects.json'
 
 json=$(mktemp -u --suffix='.json')
-
-cleanup() {
-    local -
-    trap - EXIT
-    set +o noglob; rm -f *.zip $json*
-}
-trap cleanup EXIT
+remove_on_exit $json
 
 bucket="$root-$short_region-bkt"
 
@@ -39,14 +32,22 @@ for script in $(ls python); do  # note that 'noglob' is ON
     flake8 $script  # errexit takes care of exit code
 
     function=$(sed -e 's/.*\///;s/\.py$//' <<< $script)
+
     zipfile="/tmp/$function.zip"
+    remove_on_exit $zipfile
 
     zip -9j $zipfile python/$script
 
     aws --profile wex-$profile --region $region s3 cp $zipfile s3://$bucket
 
+    fragment=$(mktemp -u --suffix=.json)
+    remove_on_exit $fragment
+
+    combined=$(mktemp -u --suffix=.json)
+    remove_on_exit $combined
+
     # Add Permissions object
-    cat > $json.temp <<EOF
+    cat > $fragment <<EOF
 {
     "Resources": {
         "${function}Permissions": {
@@ -65,11 +66,11 @@ for script in $(ls python); do  # note that 'noglob' is ON
     }
 }
 EOF
-    jq -n 'reduce inputs as $i ({}; . * $i)' $json $json.temp > $json.swap
-    mv $json.swap $json
+    jq -n 'reduce inputs as $i ({}; . * $i)' $json $fragment > $combined
+    mv $combined $json
 
     # Add Function object
-    cat > $json.temp <<EOF
+    cat > $fragment <<EOF
 {
     "Resources": {
         "$function": {
@@ -97,12 +98,12 @@ EOF
     }
 }
 EOF
-    jq -n 'reduce inputs as $i ({}; . * $i)' $json $json.temp > $json.swap
-    mv $json.swap $json
+    jq -n 'reduce inputs as $i ({}; . * $i)' $json $fragment > $combined
+    mv $combined $json
 
     if [[ $function =~ 'TemplateTransform' ]]; then
         # Add Transform object if FunctionName matches 'Transform'
-        cat > $json.temp <<EOF
+        cat > $fragment <<EOF
 {
     "Resources": {
         "${function}Macro": {
@@ -122,7 +123,7 @@ EOF
 EOF
     else
         # Export Function name if it's not a transform Macro
-        cat > $json.temp <<EOF
+        cat > $fragment <<EOF
 {
     "Outputs": {
         "${function}": {
@@ -141,8 +142,8 @@ EOF
 }
 EOF
     fi
-    jq -n 'reduce inputs as $i ({}; . * $i)' $json $json.temp > $json.swap
-    mv $json.swap $json
+    jq -n 'reduce inputs as $i ({}; . * $i)' $json $fragment > $combined
+    mv $combined $json
 done
 
 # WORKAROUND: 'update' won't pull Python from S3; delete and create again
@@ -155,5 +156,4 @@ done
 
 aws --profile wex-$profile --region $region \
     cloudformation $command-stack \
-    --stack-name $stack_name --template-body file://$json \
-    --capabilities CAPABILITY_IAM
+    --stack-name $stack_name --template-body file://$json

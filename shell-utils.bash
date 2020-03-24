@@ -1,27 +1,53 @@
-#!/bin/bash -ex
+#!/bin/bash
+set -o errexit -o pipefail -o nounset -o noglob
+
+remove_on_exit() {
+    echo $1 >> $remove_on_exit_file
+}
+
+remove_on_exit_file=$(mktemp -u --suffix=.text)
+remove_on_exit $remove_on_exit_file
+
+cleanup() {
+    trap - EXIT
+    rm -f $(cat $remove_on_exit_file)
+}
+trap cleanup EXIT
 
 create_or_update() {
     # sleep until '..._IN_PROGRESS' status is gone
     while true; do
-        aws --profile wex-$profile --region $region \
-            cloudformation list-stacks > $json.swap
+        local temp
 
-        count=$(cat $json.swap | jq "[.StackSummaries[] |
-                select(.StackName == \"$1\")] | length")
+        temp=$(mktemp -u --suffix=.json)
+        remove_on_exit $temp
+
+        aws --profile wex-$profile --region $region \
+            cloudformation list-stacks > $temp
+
+        count=$(jq "[.StackSummaries[] | select(.StackName == \"$1\")]
+            | length" $temp)
+
         if [[ $count -eq 0 ]]; then
             echo 'create'
-            return
+            return  # object never existed, no record found
         fi
-        status=$(cat $json.swap | jq "[.StackSummaries[] |
-                select(.StackName == \"$1\")][0].StackStatus")
-        [[ ! $status =~ '_IN_PROGRESS' ]] && break
+
+        status=$(jq "[.StackSummaries[]
+            | select(.StackName == \"$1\")][0].StackStatus" $temp)
+
+        [[ ! $status =~ '_IN_PROGRESS' ]] && break  # object is stable
+
+        sleep 3  # give AWS some time
     done
-    status=$(cat $json.swap | jq "[.StackSummaries[] |
-            select(.StackName == \"$1\")][0].DeletionTime")
+
+    status=$(jq "[.StackSummaries[] |
+            select(.StackName == \"$1\")][0].DeletionTime" $temp)
+
     if [[ $status = 'null' ]]; then
-        echo 'update'
+        echo 'update'  # no 'DeletionTime'; update an existing object
     else
-        echo 'create'
+        echo 'create'  # 'DeletionTime' present; create a new one
     fi
 }
 
@@ -70,6 +96,7 @@ else
 fi
 
 short_region=$(short_region $region)
+
 account_name=$(account_name $profile)
 if [[ $account_name = $profile ]]; then
     echo "No human-readable name for ($profile) found, using 'aws-' prefix" 1>&2
