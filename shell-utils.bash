@@ -2,11 +2,13 @@
 set -o errexit -o pipefail -o nounset -o noglob
 
 remove_on_exit() {
-    echo $1 >> $remove_on_exit_file
+    file=$(mktemp -u $*)
+    echo $file >> $remove_on_exit_file
+    echo $file
 }
 
 remove_on_exit_file=$(mktemp -u --suffix=.text)
-remove_on_exit $remove_on_exit_file
+echo $remove_on_exit_file > $remove_on_exit_file
 
 cleanup() {
     trap - EXIT
@@ -19,8 +21,7 @@ create_or_update() {
     while true; do
         local temp
 
-        temp=$(mktemp -u --suffix=.json)
-        remove_on_exit $temp
+        temp=$(remove_on_exit --suffix=.json)
 
         aws --profile wex-$profile --region $region \
             cloudformation list-stacks > $temp

@@ -5,8 +5,7 @@
 root="$account_name-cloudformation-lambda-utils-functions"
 json_source='json/lambda-utils-objects.json'
 
-json=$(mktemp -u --suffix='.json')
-remove_on_exit $json
+json=$(remove_on_exit --suffix='.json')
 
 bucket="$root-$short_region-bkt"
 
@@ -33,18 +32,15 @@ for script in $(ls python); do  # note that 'noglob' is ON
 
     function=$(sed -e 's/.*\///;s/\.py$//' <<< $script)
 
-    zipfile="/tmp/$function.zip"
-    remove_on_exit $zipfile
+    zipfile=$(remove_on_exit --suffix='.zip')
 
     zip -9j $zipfile python/$script
 
-    aws --profile wex-$profile --region $region s3 cp $zipfile s3://$bucket
+    aws --profile wex-$profile --region $region \
+        s3 cp $zipfile s3://$bucket/$function.zip
 
-    fragment=$(mktemp -u --suffix=.json)
-    remove_on_exit $fragment
-
-    combined=$(mktemp -u --suffix=.json)
-    remove_on_exit $combined
+    fragment=$(remove_on_exit -u --suffix=.json)
+    combined=$(remove_on_exit -u --suffix=.json)
 
     # Add Permissions object
     cat > $fragment <<EOF

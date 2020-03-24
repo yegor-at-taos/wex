@@ -5,8 +5,7 @@
 root="$account_name-lambda-utils-permissions"
 stack="$root-$short_region-stk"
 
-json=$(mktemp -u --suffix='.json')
-remove_on_exit $json
+json=$(remove_on_exit --suffix='.json')
 
 # Process 'json_source' -> 'json'
 json_source='json/lambda-utils-permissions.json'
