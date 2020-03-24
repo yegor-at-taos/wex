@@ -34,6 +34,7 @@ Prerequisite:
 [Optional] Generate the list of accounts participated.
     `./csv-audit.py --accounts`
     Use this list to auto-generate ~/.aws/credentials with Okta AWS client.
+    See `aws.bat` as an example.
 
 Stack 0: Lambda functions IAM permissions.
 
