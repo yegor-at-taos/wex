@@ -9,8 +9,9 @@ json_source='json/lambda-utils-objects.json'
 json=$(mktemp -u --suffix='.json')
 
 cleanup() {
+    local -
     trap - EXIT
-    rm -f *.zip $json $json.temp $json.swap
+    set +o noglob; rm -f *.zip $json*
 }
 trap cleanup EXIT
 
@@ -35,12 +36,7 @@ stack_name="$account_name-lambda-utils-functions-$short_region-stk"
 cp $json_source $json
 
 for script in $(ls python); do  # note that 'noglob' is ON
-    flake8 $script
-
-    if [[ ! $? ]]; then
-        echo Flake8 returns an error\; please fix your Python code.
-        exit 1
-    fi
+    flake8 $script  # errexit takes care of exit code
 
     function=$(sed -e 's/.*\///;s/\.py$//' <<< $script)
     zipfile="/tmp/$function.zip"
@@ -103,6 +99,50 @@ EOF
 EOF
     jq -n 'reduce inputs as $i ({}; . * $i)' $json $json.temp > $json.swap
     mv $json.swap $json
+
+    if [[ $function =~ 'TemplateTransform' ]]; then
+        # Add Transform object if FunctionName matches 'Transform'
+        cat > $json.temp <<EOF
+{
+    "Resources": {
+        "${function}Macro": {
+            "Type": "AWS::CloudFormation::Macro",
+            "Properties": {
+                "Name": "${function}Macro",
+                "FunctionName": {
+                    "Fn::GetAtt": [
+                        "${function}",
+                        "Arn"
+                    ]
+                }
+            }
+        }
+    }
+}
+EOF
+    else
+        # Export Function name if it's not a transform Macro
+        cat > $json.temp <<EOF
+{
+    "Outputs": {
+        "${function}": {
+            "Description": "Auto-generated: $function",
+            "Value": {
+                "Fn::GetAtt": [
+                    "${function}",
+                    "Arn"
+                ]
+            },
+            "Export": {
+                "Name": "$function-Arn"
+            }
+        }
+    }
+}
+EOF
+    fi
+    jq -n 'reduce inputs as $i ({}; . * $i)' $json $json.temp > $json.swap
+    mv $json.swap $json
 done
 
 # WORKAROUND: 'update' won't pull Python from S3; delete and create again
@@ -112,7 +152,6 @@ while true; do
     aws --profile wex-$profile --region $region \
         cloudformation delete-stack --stack-name $stack_name
 done
-
 
 aws --profile wex-$profile --region $region \
     cloudformation $command-stack \

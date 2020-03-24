@@ -2,31 +2,7 @@
   "AWSTemplateFormatVersion": "2010-09-09",
   "Description": "WEX Inc., AWS Lambda tools Objects.",
   "Resources": {
-    "Transform": {
-      "Type": "AWS::CloudFormation::Macro",
-      "Properties": {
-        "Name": "Route53TemplateTransform",
-        "FunctionName": {
-          "Fn::GetAtt": [
-            "CloudFormationTemplateTransformFunction",
-            "Arn"
-          ]
-        }
-      }
-    }
   },
   "Outputs": {
-      "Route53ResourceShareAutoAcceptFunction": {
-          "Description": "Cross-account share auto-accept",
-          "Value": {
-              "Fn::GetAtt": [
-                  "CloudFormationAutoAcceptFunction",
-                  "Arn"
-              ]
-          },
-          "Export": {
-              "Name": "Route53ResourceShareAutoAcceptFunction-Arn"
-          }
-      }
   }
 }
