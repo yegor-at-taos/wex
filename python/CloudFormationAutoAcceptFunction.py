@@ -32,7 +32,7 @@ def handler(event, context):
                 aws_session_token=peer['Credentials']['SessionToken']
             )
 
-            invitationArn=event["ResourceProperties"]["ResourceShareArn"]
+            invitationArn = event["ResourceProperties"]["ResourceShareArn"]
             logger.debug(f'Confirming invitation: {invitationArn}')
 
             response = client.accept_resource_share_invitation(

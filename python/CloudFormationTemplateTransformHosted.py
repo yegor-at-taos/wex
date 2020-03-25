@@ -42,9 +42,7 @@ def import_value(event, wex_data, resource):
             resource = overrides[resource]
 
     value = resource[1:] if resource.startswith('@') else {
-            'Fn::ImportValue': {
-                'Fn::Sub': f'{parent_stack_name}-{resource}'
-                }
+            'Fn::ImportValue': f'{parent_stack_name}-{resource}'
             }
 
     return value

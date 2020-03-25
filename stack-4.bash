@@ -10,12 +10,13 @@ else
     ./csv-audit.py --generate > $json_template
 fi
 
-root="$account_name-cloudformation-endpoints-sgs"
+root="$account_name-cloudformation-hosted"
 stack_name="$root-$short_region-stk"
 
 json=$(remove_on_exit --suffix='.json')
-jq ".Transform = [\"CloudFormationTemplateTransformEndpointsMacro\"]" \
-    json/cloudformation-template.json > $json
+jq ".Transform = [\"CloudFormationTemplateTransformOnPremMacro\"]
+    | .Description = \"WEX Inc., AWS Route 53 Resolver Hosted rules and shares\"" \
+    $json_template > $json
 
 aws --profile wex-$profile --region $region \
     cloudformation $(create_or_update $stack_name)-stack \
