@@ -134,11 +134,11 @@ def handler(event, context):
             'Value': {
                 'Fn::GetAtt': [
                     ep_in_id,
-                    'Arn'
+                    'ResolverEndpointId'
                     ],
                 },
             'Export': {
-                'Name': f'Route53-Inbound-Endpoint-Arn',
+                'Name': f'Route53-Inbound-Endpoint-Id',
                 }
             }
 
@@ -182,11 +182,11 @@ def handler(event, context):
             'Value': {
                 'Fn::GetAtt': [
                     ep_out_id,
-                    'Arn'
+                    'ResolverEndpointId'
                     ],
                 },
             'Export': {
-                'Name': f'Route53-Outbound-Endpoint-Arn',
+                'Name': f'Route53-Outbound-Endpoint-Id',
                 }
             }
 

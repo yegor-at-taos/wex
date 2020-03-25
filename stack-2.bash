@@ -18,8 +18,6 @@ jq ".Transform = [\"CloudFormationTemplateTransformEndpointsMacro\"]
     | .Description = \"WEX Inc., AWS Route 53 Resolver Endpoints and SGs\"" \
     $json_template > $json
 
-cp $json foo.json
-
 aws --profile wex-$profile --region $region \
     cloudformation $(create_or_update $stack_name)-stack \
     --stack-name $stack_name --template-body file://$json \

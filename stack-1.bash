@@ -28,7 +28,9 @@ fi
 cp $json_source $json
 
 for script in $(ls python); do  # note that 'noglob' is ON
-    flake8 $script  # errexit takes care of exit code
+    flake8 $script
+
+    [[ $? -ne 0 ]] && exit 1
 
     function=$(sed -e 's/.*\///;s/\.py$//' <<< $script)
 
@@ -131,7 +133,11 @@ EOF
                 ]
             },
             "Export": {
-                "Name": "$function-Arn"
+                "Name": {
+                    "Fn::Join": [
+                        ":", [ "$function", "Arn" ]
+                    ]
+                }
             }
         }
     }

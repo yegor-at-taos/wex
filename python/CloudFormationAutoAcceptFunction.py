@@ -9,33 +9,44 @@ logger.setLevel(logging.DEBUG)
 
 
 def handler(event, context):
-    logger.info("Received event: " + json.dumps(event, indent=2))
-    response_data = {}
+    print(event)
 
     try:
         if event["RequestType"] == "Create":
             logger.debug('Processing Create')
 
+            arn = f'arn:aws:iam::{event["ResourceProperties"]["Principal"]}' \
+                f':role/{event["ResourceProperties"]["RoleARN"]}'
+            logger.debug(f'Accepting invitation for: {arn}')
+
             sts_connection = boto3.client('sts')
             peer = sts_connection.assume_role(
-                RoleArn=event['ResourceShareArn'],
+                RoleArn=arn,
                 RoleSessionName='cross_acct_lambda'
             )
 
-            client = boto3.client('ram',
+            client = boto3.client(
+                'ram',
                 aws_access_key_id=peer['Credentials']['AccessKeyId'],
                 aws_secret_access_key=peer['Credentials']['SecretAccessKey'],
                 aws_session_token=peer['Credentials']['SessionToken']
             )
 
-        elif event["RequestType"] == "Delete":
-            pass
+            invitationArn=event["ResourceProperties"]["ResourceShareArn"]
+            logger.debug(f'Confirming invitation: {invitationArn}')
 
-        send_response("SUCCESS", event, context, response_data)
+            response = client.accept_resource_share_invitation(
+                    resourceShareInvitationArn=invitationArn
+                    )
+            logger.debug(f'Got response: {response}')
+
+        elif event["RequestType"] == "Delete":
+            logger.debug('Processing Delete')
 
     except Exception as e:
-        logger.error(f"An error occured: {e}")
-        send_response("FAILURE", event, context, response_data)
+        logger.error(f'An error occured: {e}')
+
+    send_response("SUCCESS", event, context, dict())
 
 
 def send_response(status, event, context, data):
@@ -52,16 +63,17 @@ def send_response(status, event, context, data):
         "Data": data
     }
 
-    logger.debug(request_body)
-
     http = urllib3.PoolManager()
 
-    response = http.request(
-            'PUT',
-            event["ResponseURL"],
-            headers=headers,
-            body=json.dumps(request_body),
-            retries=False
-            )
+    try:
+        response = http.request(
+                'PUT',
+                event["ResponseURL"],
+                headers=headers,
+                body=json.dumps(request_body),
+                retries=False
+                )
+    except Exception as e:
+        logger.error(f'An error occured: {e}')
 
-    logger.info(f"Response status code: {response.status}")
+    logger.debug(f"Response status code: {response.status}")

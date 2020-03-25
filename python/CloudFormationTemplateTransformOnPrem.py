@@ -42,9 +42,7 @@ def import_value(event, wex_data, resource):
             resource = overrides[resource]
 
     value = resource[1:] if resource.startswith('@') else {
-            'Fn::ImportValue': {
-                'Fn::Sub': f'{parent_stack_name}-{resource}'
-                }
+            'Fn::ImportValue': f'{parent_stack_name}-{resource}'
             }
 
     return value
@@ -77,85 +75,14 @@ def handler(event, context):
                 'status': 'FAILURE',
                 }
 
-    # In Security Group
-    sg_in_id = mk_id(['rrInSG', region, wex])
-    resources[sg_in_id] = {
-            'Type': 'AWS::EC2::SecurityGroup',
-            'Properties': {
-                'GroupDescription': 'Incoming DNS over IPv4',
-                'VpcId': import_value(event, wex, 'Vpc-Id'),
-                'SecurityGroupIngress': [
-                    {
-                        'CidrIp': '0.0.0.0/0',
-                        'IpProtocol': 'udp',
-                        'FromPort': 53,
-                        'ToPort': 53,
-                        }
-                    ],
-                }
-            }
-
-    # Out Security Group
-    sg_out_id = mk_id(['rrOutSG', region[0], wex])
-    resources[sg_out_id] = {
-            'Type': 'AWS::EC2::SecurityGroup',
-            'Properties': {
-                'GroupDescription': 'Outgoing DNS over IPv4',
-                'VpcId': import_value(event, wex, 'Vpc-Id'),
-                }
-            }
-
-    # In Resolver Endpoint
-    ep_in_id = mk_id(['rrInEndpoint', region[0], wex])
-    resources[ep_in_id] = {
-            'Type': 'AWS::Route53Resolver::ResolverEndpoint',
-            'Properties': {
-                'Direction': 'INBOUND',
-                'IpAddresses': [
-                    {
-                        'SubnetId': import_value(event,
-                                                 wex,
-                                                 f'PrivateSubnet{i+1}-Id')
-                        }
-                    for i
-                    in range(az_count)
-                    ],
-                'SecurityGroupIds': [
-                    get_attr(sg_in_id, 'GroupId'),
-                    ],
-                },
-            }
-
-    # Out Resolver Endpoint
-    ep_out_id = mk_id(['rrOutEndpoint', region[0], wex])
-    resources[ep_out_id] = {
-            'Type': 'AWS::Route53Resolver::ResolverEndpoint',
-            'Properties': {
-                'Direction': 'OUTBOUND',
-                'IpAddresses': [
-                    {
-                        'SubnetId': import_value(event,
-                                                 wex,
-                                                 f'PrivateSubnet{i+1}-Id')
-                        }
-                    for i
-                    in range(az_count)
-                    ],
-                'SecurityGroupIds': [
-                    get_attr(sg_out_id, 'GroupId'),
-                    ],
-                },
-            }
-
-    # Create OnPrem rules if this is OnPremHub
     if event['accountId'] in wex['Infoblox']['OnPremHub']:
+        # Create OnPrem rules if this is OnPremHub
         for zone in wex['Infoblox']['OnPremZones']:
             opz_rule_id = mk_id(
                     [
                         'rrOnPremZone',
                         zone,
-                        region[0],
-                        wex
+                        region
                         ]
                     )
             resources[opz_rule_id] = {
@@ -163,8 +90,10 @@ def handler(event, context):
                     'Properties': {
                         'RuleType': 'FORWARD',
                         'DomainName': zone,
-                        'ResolverEndpointId': get_attr(ep_out_id,
-                                                       'ResolverEndpointId'),
+                        'ResolverEndpointId': {
+                                'Fn::ImportValue':
+                                    'Route53-Outbound-Endpoint-Id',
+                            },
                         'TargetIps': [
                             {
                                 'Ip': target_ip,
@@ -176,14 +105,11 @@ def handler(event, context):
                         },
                     }
 
-            shared_arns.append(get_attr(opz_rule_id, 'Arn'))
-
             opz_rule_assoc_id = mk_id(
                     [
                         'rrOnPremZoneAssoc',
                         zone,
-                        region[0],
-                        wex
+                        region,
                         ]
                     )
             resources[opz_rule_assoc_id] = {
@@ -195,88 +121,55 @@ def handler(event, context):
                         }
                     }
 
-    # Create Hosted rules for this account/region combination
-    if event['accountId'] in wex['Infoblox']['Accounts']:
-        account_data = wex['Infoblox']['Accounts'][event['accountId']]
-        if 'HostedZones' in account_data:
-            for zone in account_data['HostedZones'].items():
-                hz_rule_id = mk_id(
-                        [
-                            'rrHostedZone',
-                            zone,
-                            region[0],
-                            wex
-                            ]
-                        )
-                resources[hz_rule_id] = {
-                        'Type': 'AWS::Route53Resolver::ResolverRule',
-                        'Properties': {
-                            'RuleType': 'SYSTEM',
-                            'DomainName': zone[1],
-                            },
-                        }
-
-                shared_arns.append(get_attr(hz_rule_id, 'Arn'))
-
-                hz_rule_assoc_id = mk_id(
-                        [
-                            'rrHostedZoneAssoc',
-                            zone,
-                            region[0],
-                            wex
-                            ]
-                        )
-                resources[hz_rule_assoc_id] = {
-                        'Type': 'AWS::Route53Resolver::ResolverRuleAssociation',  # noqa: E501
-                        'Properties': {
-                            'ResolverRuleId': get_attr(hz_rule_id,
-                                                       'ResolverRuleId'),
-                            'VPCId': import_value(event, wex, 'Vpc-Id'),
-                            }
-                        }
+            # share this rule with peers
+            shared_arns.append(get_attr(opz_rule_id, 'Arn'))
 
     # Share created ResolverRule(s)
-    principals = set(wex['Infoblox']['Accounts']) - set([event['accountId']])
-    for principal in list(principals):
-        share_id = mk_id(
-                [
-                    'rrSharedRules',
-                    principal,
-                    shared_arns,
-                    region[0],
-                    wex
-                    ]
-                )
+    principals = set(wex['Infoblox']['Accounts']) \
+        - set([event['accountId']])
 
-        resources[share_id] = {
-                'Type': 'AWS::RAM::ResourceShare',
-                'Properties': {
-                    'Name': 'Route53-Rules-Share',
-                    'ResourceArns': shared_arns,
-                    'Principals': [principal]
+    if len(shared_arns) > 0 and len(principals) > 0:
+        for principal in list(principals):
+            # one rule per principal
+            share_id = mk_id(
+                    [
+                        'rrSharedRules',
+                        principal,
+                        region,
+                        ]
+                    )
+
+            resources[share_id] = {
+                    'Type': 'AWS::RAM::ResourceShare',
+                    'Properties': {
+                        'Name': f'Route53-OnPrem-Rules-Share-to-{principal}',
+                        'ResourceArns': shared_arns,
+                        'Principals': [principal]
+                        }
                     }
-                }
 
-        aa_id = mk_id(
-                [
-                    'aaCustom',
-                    region[0],
-                    share_id,
-                    wex
-                    ]
-                )
+            auto_accept_id = mk_id(
+                    [
+                        'rrAutoAccept',
+                        region,
+                        share_id,
+                        ]
+                    )
 
-        resources[aa_id] = {
-                'Type': 'AWS::CloudFormation::CustomResource',
-                'Properties': {
-                    'ServiceToken': {
-                        'Fn::ImportValue': 'VpcAutoAcceptFunction-Arn'
-                        },
-                    'ResourceShareArn': get_attr(share_id, 'Arn'),
-                    # TODO: Lambda handler only supports AWS AccountId atm
-                    'Principals': [principal],
+            resources[auto_accept_id] = {
+                    'Type': 'AWS::CloudFormation::CustomResource',
+                    'Properties': {
+                        'ServiceToken': {
+                            'Fn::ImportValue':
+                                'CloudFormationAutoAcceptFunction:Arn'
+                            },
+                        'ResourceShareArn': get_attr(share_id, 'Arn'),
+                        'Principal': principal,
+                        'RoleARN':
+                            'WEXResourceAccessManager'
+                            'AcceptResourceShareInvitation',
+                        }
                     }
-                }
 
     return {
             'requestId': event['requestId'],
