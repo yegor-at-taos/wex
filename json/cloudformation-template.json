@@ -14,8 +14,11 @@
             "544308222195",
             "189106039250"
         ],
+        "HostedHub": [
+            "544308222195",
+            "189106039250"
+        ],
         "OnPremZones": [
-          "AWS::NoValue"
         ],
         "OnPremResolverIps": [
           "10.94.1.77",
@@ -61,7 +64,6 @@
     }
   },
   "Transform": [
-      "AWS::NoValue"
   ],
   "Outputs": {
   }

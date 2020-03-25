@@ -44,6 +44,7 @@ def handler(event, context):
             logger.debug('Processing Delete')
 
     except Exception as e:
+        # report 'SUCCESS' even if ack had been failed
         logger.error(f'An error occured: {e}')
 
     send_response("SUCCESS", event, context, dict())

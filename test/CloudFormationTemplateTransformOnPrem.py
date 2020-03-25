@@ -4,7 +4,7 @@ import sys
 
 sys.path.insert(1, '.')
 
-from python import CloudFormationTemplateTransformHosted
+from python import CloudFormationTemplateTransformOnPrem
 
 with open('mock/infra-mock.json') as f:
     event = {
@@ -16,6 +16,6 @@ with open('mock/infra-mock.json') as f:
             "params": {},
             "templateParameterValues": {}
             }
-response = CloudFormationTemplateTransformHosted.handler(event, None)
+response = CloudFormationTemplateTransformOnPrem.handler(event, None)
 
 print(json.dumps(response))

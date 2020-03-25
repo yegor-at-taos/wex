@@ -76,44 +76,40 @@ def handler(event, context):
                 }
 
     # Create Hosted rules for this account/region combination
-    if event['accountId'] in wex['Infoblox']['Accounts']:
-        account_data = wex['Infoblox']['Accounts'][event['accountId']]
-        if 'HostedZones' in account_data:
-            for zone in account_data['HostedZones'].items():
-                hz_rule_id = mk_id(
-                        [
-                            'rrHostedZone',
-                            zone,
-                            region[0],
-                            wex
-                            ]
-                        )
-                resources[hz_rule_id] = {
-                        'Type': 'AWS::Route53Resolver::ResolverRule',
-                        'Properties': {
-                            'RuleType': 'SYSTEM',
-                            'DomainName': zone[1],
-                            },
-                        }
+    if event['accountId'] in wex['Infoblox']['HostedHub']:
+        for zone in wex['Infoblox']['HostedZones']:
+            hz_rule_id = mk_id(
+                    [
+                        'rrHostedZone',
+                        zone,
+                        region,
+                        ]
+                    )
+            resources[hz_rule_id] = {
+                    'Type': 'AWS::Route53Resolver::ResolverRule',
+                    'Properties': {
+                        'RuleType': 'SYSTEM',
+                        'DomainName': zone,
+                        },
+                    }
 
-                shared_arns.append(get_attr(hz_rule_id, 'Arn'))
+            shared_arns.append(get_attr(hz_rule_id, 'Arn'))
 
-                hz_rule_assoc_id = mk_id(
-                        [
-                            'rrHostedZoneAssoc',
-                            zone,
-                            region[0],
-                            wex
-                            ]
-                        )
-                resources[hz_rule_assoc_id] = {
-                        'Type': 'AWS::Route53Resolver::ResolverRuleAssociation',  # noqa: E501
-                        'Properties': {
-                            'ResolverRuleId': get_attr(hz_rule_id,
-                                                       'ResolverRuleId'),
-                            'VPCId': import_value(event, wex, 'Vpc-Id'),
-                            }
+            hz_rule_assoc_id = mk_id(
+                    [
+                        'rrHostedZoneAssoc',
+                        zone,
+                        region,
+                        ]
+                    )
+            resources[hz_rule_assoc_id] = {
+                    'Type': 'AWS::Route53Resolver::ResolverRuleAssociation',  # noqa: E501
+                    'Properties': {
+                        'ResolverRuleId': get_attr(hz_rule_id,
+                                                   'ResolverRuleId'),
+                        'VPCId': import_value(event, wex, 'Vpc-Id'),
                         }
+                    }
 
     # Share created ResolverRule(s)
     principals = set(wex['Infoblox']['Accounts']) \
