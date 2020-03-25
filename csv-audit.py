@@ -66,19 +66,37 @@ class WexAnalyzer:
         with open('json/cloudformation-template.json') as f:
             tmpl = json.load(f)
 
+        infoblox = tmpl['Mappings']['Wex']['Infoblox']
+
+        infoblox.update({
+            'Accounts': set(),
+            'HostedZones': set(),
+            })
+
         for account in csv_data.items():
-            tmpl['Mappings']['Wex']['Infoblox']['Accounts'][account[0]] = {
-                    'HostedZones': dict(
-                        [
-                            [zone, csv_name[zone][5:]]
-                            for zone
-                            in account[1]
-                            ]
-                        )
-                    }
+            infoblox['Accounts'].add(account[0])
+
+            for zone_id in account[1]:
+                # aggregate wexglobal.com
+                hosted_zone = re.sub('\.*$', '', csv_name[zone_id][5:].strip())
+                hosted_zone = hosted_zone.split('.')
+
+                if hosted_zone[-1].endswith('failed'):
+                    continue
+
+                if hosted_zone[-1] == 'com':
+                    if hosted_zone[-2] in ['wexglobal']:
+                        if hosted_zone[-3] in \
+                                ['ue1', 'ec1', 'uw2', 'ae1', 'ae2', 'ew1']:
+                            hosted_zone = hosted_zone[-3:]
+
+                infoblox['HostedZones'].add('.'.join(hosted_zone) + '.')
+
+        for key in ['Accounts', 'HostedZones']:
+            infoblox[key] = sorted(list(infoblox[key]))
 
         tmpl['Mappings']['Wex']['Infoblox']['OnPremZones'] = \
-            list(unbound.zones())
+            sorted(list(unbound.zones()))
 
         print(json.dumps(tmpl, indent=2))
 
@@ -161,9 +179,11 @@ parser.add_argument("-f", "--file", type=str,
 parser.add_argument("-l", "--logging", type=str,
                     help="logging level", default="WARN")
 parser.add_argument("-g", "--generate", action='store_true',
-                    help="Generate config from CSV", default=False)
+                    help="Generate config from CSV",
+                    default=False)
 parser.add_argument("-a", "--accounts", action='store_true',
-                    help="Generate config from CSV", default=False)
+                    help="Generate config from CSV",
+                    default=False)
 parser.add_argument("-u", "--unbound", type=str,
                     help="Unbound networks",
                     default="172.16.0.0/12,10.78.0.0/16")
