@@ -3,6 +3,8 @@
 . shell-utils.bash
 
 root="$account_name-cloudformation-lambda-utils-functions"
+stack_name="$root-$short_region-stk"
+
 json_source='json/lambda-utils-objects.json'
 
 json=$(remove_on_exit --suffix='.json')
@@ -22,8 +24,6 @@ if [[ $(aws --profile wex-$profile --region $region s3api list-buckets \
             --acl authenticated-read --bucket $bucket
     fi
 fi
-
-stack_name="$account_name-lambda-utils-functions-$short_region-stk"
 
 cp $json_source $json
 

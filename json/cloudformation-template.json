@@ -1,6 +1,6 @@
 {
   "AWSTemplateFormatVersion": "2010-09-09",
-  "Description": "WEX Inc., Route 53 setup.",
+  "Description": "AWS::NoValue",
   "Mappings": {
     "Wex": {
       "Tags": [
@@ -11,38 +11,30 @@
       ],
       "Infoblox": {
         "OnPremHub": [
-          "544308222195",
-          "189106039250",
-          "672442290193"
+            "544308222195",
+            "189106039250",
+            "672442290193"
         ],
         "OnPremZones": [
-          "wrightexpress.com.",
-          "ad.wrightexpress.com."
+          "zone.sample.com."
         ],
         "OnPremResolverIps": [
           "10.94.1.77",
-          "10.94.5.87"
+          "10.94.5.87",
+          "10.97.1.99",
+          "10.98.1.166"
         ],
         "Accounts": {
-          "544308222195": {
-            "HostedZones": {
-              "ZCXUQ1SY8YKOZ": "custodian.ue1.wexglobal.com"
-            }
-          },
-          "229349022034": {
-            "HostedZones": {
-            }
-          }
         }
       },
       "Overrides": {
         "544308222195": {
-          "parent-stack-name": "Custodian-VPC",
-          "Resources": {
-            "Vpc-Id": "VpcId",
-            "PrivateSubnet1-Id": "@subnet-0a860dd075984960b",
-            "PrivateSubnet2-Id": "@subnet-028f92c3bf460e69b"
-          }
+            "parent-stack-name": "Custodian-VPC",
+            "Resources": {
+                "Vpc-Id": "VpcId",
+                "PrivateSubnet1-Id": "@subnet-0a860dd075984960b",
+                "PrivateSubnet2-Id": "@subnet-028f92c3bf460e69b"
+            }
         }
       },
       "Regions": {
@@ -65,11 +57,13 @@
           "parent-stack-name": "coreservices-prod-ue1-vpc-stk"
         }
       },
-      "Outputs": {}
+      "Outputs": {
+      }
     }
   },
   "Transform": [
-    "wexRouteFiftyThreeMacro"
+      "AWS::NoValue"
   ],
-  "Outputs": {}
+  "Outputs": {
+  }
 }

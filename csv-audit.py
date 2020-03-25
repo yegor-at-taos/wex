@@ -63,7 +63,7 @@ class WexAnalyzer:
     def generate(self, csv_data, csv_name):
         unbound = Unbound.Unbound(self.args)
 
-        with open('r53-stack.json') as f:
+        with open('json/cloudformation-template.json') as f:
             tmpl = json.load(f)
 
         for account in csv_data.items():

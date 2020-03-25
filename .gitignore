@@ -133,3 +133,4 @@ samples/
 WEX-AWS-Audit.csv
 aws.txt
 mock/infra-mock.json
+*.swp
