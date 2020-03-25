@@ -1,8 +1,12 @@
 #!/usr/bin/env python3
-import VpcTransformFunction
 import json
+import sys
 
-with open('tests/00-config.json') as f:
+sys.path.insert(1, '.')
+
+from python import CloudFormationTemplateTransformHosted
+
+with open('mock/infra-mock.json') as f:
     fragment = json.load(f)
 
 event = {
@@ -14,6 +18,6 @@ event = {
         "params": {},
         "templateParameterValues": {}
         }
-response = VpcTransformFunction.handler(event, None)
+response = CloudFormationTemplateTransformHosted.handler(event, None)
 
 print(json.dumps(response))

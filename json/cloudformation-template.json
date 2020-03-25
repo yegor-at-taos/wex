@@ -12,11 +12,10 @@
       "Infoblox": {
         "OnPremHub": [
             "544308222195",
-            "189106039250",
-            "672442290193"
+            "189106039250"
         ],
         "OnPremZones": [
-          "zone.sample.com."
+          "AWS::NoValue"
         ],
         "OnPremResolverIps": [
           "10.94.1.77",

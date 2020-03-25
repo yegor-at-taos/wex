@@ -133,7 +133,7 @@ def handler(event, context):
             # one rule per principal
             share_id = mk_id(
                     [
-                        'rrSharedRules',
+                        'rrOnPermShareRules',
                         principal,
                         region,
                         ]

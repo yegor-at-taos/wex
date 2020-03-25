@@ -42,7 +42,7 @@ class WexAnalyzer:
                     csv_data[acct].add(zone_id)
 
                     # auto-detect format: 1) 'id (name)' 2) 'name (id)'
-                    if re.search(f'\\(\\s*{zone_id}\\s*\)', zone):
+                    if re.search(f'\\(\\s*{zone_id}\\s*\\)', zone):
                         # format 2, ZoneId in brackets
                         zone_name = re.sub('\\s*\\(.*', '', zone)
                     else:
@@ -67,22 +67,20 @@ class WexAnalyzer:
             tmpl = json.load(f)
 
         for account in csv_data.items():
-            tmpl['Mappings']['Wex']['Infoblox']['Accounts'] \
-                    [account[0]] = {
-                            'HostedZones': dict(
-                                [
-                                    [zone, csv_name[zone][5:]]
-                                    for zone
-                                    in account[1]
-                                    ]
-                                )
-                            }
+            tmpl['Mappings']['Wex']['Infoblox']['Accounts'][account[0]] = {
+                    'HostedZones': dict(
+                        [
+                            [zone, csv_name[zone][5:]]
+                            for zone
+                            in account[1]
+                            ]
+                        )
+                    }
 
         tmpl['Mappings']['Wex']['Infoblox']['OnPremZones'] = \
-                list(unbound.zones())
+            list(unbound.zones())
 
         print(json.dumps(tmpl, indent=2))
-
 
     def run(self):
         csv_data, csv_name = dict(), dict()
@@ -114,7 +112,7 @@ class WexAnalyzer:
 
             for csv_account_id in csv_data.keys():
                 if csv_account_id in [
-                        #'544308222195',
+                        '544308222195',
                         '344287180399',
                         ]:
                     continue
@@ -158,7 +156,8 @@ class WexAnalyzer:
 
 parser = argparse.ArgumentParser()
 parser.add_argument("-f", "--file", type=str,
-                    help="WEX exported CSV", default="infra/WEX-AWS-?.csv")
+                    help="WEX exported CSV",
+                    default="infra/WEX-AWS-?.csv")
 parser.add_argument("-l", "--logging", type=str,
                     help="logging level", default="WARN")
 parser.add_argument("-g", "--generate", action='store_true',
@@ -166,9 +165,11 @@ parser.add_argument("-g", "--generate", action='store_true',
 parser.add_argument("-a", "--accounts", action='store_true',
                     help="Generate config from CSV", default=False)
 parser.add_argument("-u", "--unbound", type=str,
-                    help="Unbound networks", default="172.16.0.0/12,10.78.0.0/16")
+                    help="Unbound networks",
+                    default="172.16.0.0/12,10.78.0.0/16")
 parser.add_argument("-p", "--path", type=str,
-                    help="Unbound configurations path", default="infra/unbound")
+                    help="Unbound configurations path",
+                    default="infra/unbound")
 args = parser.parse_args()
 
 WexAnalyzer(args).run()
