@@ -48,8 +48,10 @@ EOF
 
     zipfile=$(remove_on_exit --suffix='.zip')
 
+    # file inside the container must be named after the function name + .py
     mv $python /tmp/$script; zip -9jm $zipfile /tmp/$script
 
+    # the container could be named anything; see S3Key in Resources
     aws --profile wex-$profile --region $region \
         s3 cp $zipfile s3://$bucket/$function.zip
 

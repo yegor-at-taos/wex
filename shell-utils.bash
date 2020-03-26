@@ -57,21 +57,12 @@ account_name() {
         echo 'coreservices-mock'
         return
     fi
-    data=$(cat shell-utils.text | sed \
-        -e 's/\s*:\s*\w*$//' \
-        -e 's/.*:[[:space:]]*//' \
-        -e 's/^\([^[:space:]]*\)[[:space:]]*-[[:space:]]*/\1,/' \
-        -e "/^$1/!d" \
-        -e 's/[[:space:]]/-/g' | tr A-Z a-z)
-    if [[ -z $data ]]; then
-        echo Account not found: $1 1>&2
+    name=$(jq ".[\"$1\"]" shell-utils.json)
+    if [[ $name = 'null' ]]; then
+        echo Account not found: $1  # no name in Okta
         exit 1
-    fi
-    name=$(sed -e 's/.*,//' <<< $data)
-    if [[ -z $name ]]; then
-        echo $1  # no name in Okta
     else
-        echo $name
+        echo $name | sed -e 's/"//g'
     fi
 }
 
