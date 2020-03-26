@@ -7,7 +7,7 @@ remove_on_exit() {
     echo $file
 }
 
-remove_on_exit_file=$(mktemp -u --suffix=.text)
+remove_on_exit_file=$(mktemp --suffix=.text)
 echo $remove_on_exit_file > $remove_on_exit_file
 
 cleanup() {

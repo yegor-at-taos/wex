@@ -14,7 +14,7 @@ root="$account_name-cloudformation-hosted"
 stack_name="$root-$short_region-stk"
 
 json=$(remove_on_exit --suffix='.json')
-jq ".Transform = [\"CloudFormationTemplateTransformOnPremMacro\"]
+jq ".Transform = [\"CloudFormationTemplateTransformHostedMacro\"]
     | .Description = \"WEX Inc., AWS Route 53 Resolver Hosted rules and shares\"" \
     $json_template > $json
 

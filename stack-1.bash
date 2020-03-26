@@ -48,7 +48,7 @@ EOF
 
     zipfile=$(remove_on_exit --suffix='.zip')
 
-    zip -9jm $zipfile $python
+    mv $python /tmp/$script; zip -9jm $zipfile /tmp/$script
 
     aws --profile wex-$profile --region $region \
         s3 cp $zipfile s3://$bucket/$function.zip
