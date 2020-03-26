@@ -28,19 +28,33 @@ fi
 cp $json_source $json
 
 for script in $(ls python); do  # note that 'noglob' is ON
-    flake8 python/$script
+    python=$(remove_on_exit --suffix='.py')
 
-    function=$(sed -e 's/.*\///;s/\.py$//' <<< $script)
+    if [[ ! $script =~ '.py' ]]; then
+        continue
+    elif [[ $script =~ 'CloudFormationTemplateTransform' ]]; then
+        ed -s <<EOF
+r python/$script
+/^def handler/-1r python/python.include
+w $python
+EOF
+    else
+        cp python/$script $python
+    fi
+
+    flake8 $python
+
+    function=${script%.py}
 
     zipfile=$(remove_on_exit --suffix='.zip')
 
-    zip -9j $zipfile python/$script
+    zip -9jm $zipfile $python
 
     aws --profile wex-$profile --region $region \
         s3 cp $zipfile s3://$bucket/$function.zip
 
-    fragment=$(remove_on_exit -u --suffix=.json)
-    combined=$(remove_on_exit -u --suffix=.json)
+    fragment=$(remove_on_exit --suffix=.json)
+    combined=$(remove_on_exit --suffix=.json)
 
     # Add Permissions object
     cat > $fragment <<EOF

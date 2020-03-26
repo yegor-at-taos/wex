@@ -3,60 +3,6 @@ import hashlib
 import json
 import logging
 
-az_count = 2
-
-logger = logging.getLogger()
-logger.setLevel(logging.INFO)
-
-
-def mk_id(args):
-    digest = hashlib.blake2b()
-    for arg in args:
-        digest.update(bytes(json.dumps(arg), 'utf-8'))
-    return args[0] + digest.hexdigest()[-17:]
-
-
-def import_value(event, wex_data, resource):
-    region, account_id = event['region'], event['accountId']
-
-    parent_stack_name = wex_data['Regions'][region]['parent-stack-name']
-
-    for overrides in [
-            overrides['Overrides']
-            for overrides
-            in [wex_data, wex_data['Regions'][event['region']]]
-            if 'Overrides' in overrides
-            ]:
-        if account_id not in overrides:
-            continue
-
-        overrides = overrides[account_id]
-
-        if 'parent-stack-name' in overrides:
-            parent_stack_name = overrides['parent-stack-name']
-
-        if 'Resources' in overrides:
-            overrides = overrides['Resources']
-
-        if resource in overrides:
-            resource = overrides[resource]
-
-    value = resource[1:] if resource.startswith('@') else {
-            'Fn::ImportValue': f'{parent_stack_name}-{resource}'
-            }
-
-    return value
-
-
-def get_attr(resource_name, attribute_name):
-    return {
-            'Fn::GetAtt': [
-                resource_name,
-                attribute_name,
-                ]
-            }
-
-
 def handler(event, context):
     region, shared_arns = event['region'], list()
 
@@ -75,41 +21,39 @@ def handler(event, context):
                 'status': 'FAILURE',
                 }
 
-    # Create Hosted rules for this account/region combination
-    if event['accountId'] in wex['Infoblox']['HostedHub']:
-        for zone in wex['Infoblox']['HostedZones']:
-            hz_rule_id = mk_id(
-                    [
-                        'rrHostedZone',
-                        zone,
-                        region,
-                        ]
-                    )
-            resources[hz_rule_id] = {
-                    'Type': 'AWS::Route53Resolver::ResolverRule',
-                    'Properties': {
-                        'RuleType': 'SYSTEM',
-                        'DomainName': zone,
-                        },
-                    }
+    for zone in wex['Infoblox']['HostedZones']:
+        hz_rule_id = mk_id(
+                [
+                    'rrHostedZone',
+                    zone,
+                    region,
+                    ]
+                )
+        resources[hz_rule_id] = {
+                'Type': 'AWS::Route53Resolver::ResolverRule',
+                'Properties': {
+                    'RuleType': 'SYSTEM',
+                    'DomainName': zone,
+                    },
+                }
 
-            shared_arns.append(get_attr(hz_rule_id, 'Arn'))
-
-            hz_rule_assoc_id = mk_id(
-                    [
-                        'rrHostedZoneAssoc',
-                        zone,
-                        region,
-                        ]
-                    )
-            resources[hz_rule_assoc_id] = {
-                    'Type': 'AWS::Route53Resolver::ResolverRuleAssociation',  # noqa: E501
-                    'Properties': {
-                        'ResolverRuleId': get_attr(hz_rule_id,
-                                                   'ResolverRuleId'),
-                        'VPCId': import_value(event, wex, 'Vpc-Id'),
-                        }
+        hz_rule_assoc_id = mk_id(
+                [
+                    'rrHostedZoneAssoc',
+                    zone,
+                    region,
+                    ]
+                )
+        resources[hz_rule_assoc_id] = {
+                'Type': 'AWS::Route53Resolver::ResolverRuleAssociation',  # noqa: E501
+                'Properties': {
+                    'ResolverRuleId': get_attr(hz_rule_id,
+                                               'ResolverRuleId'),
+                    'VPCId': import_value(event, wex, 'Vpc-Id'),
                     }
+                }
+
+        shared_arns.append(get_attr(hz_rule_id, 'Arn'))
 
     # Share created ResolverRule(s)
     principals = set(wex['Infoblox']['Accounts']) \

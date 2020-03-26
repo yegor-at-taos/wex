@@ -3,60 +3,6 @@ import hashlib
 import json
 import logging
 
-az_count = 2
-
-logger = logging.getLogger()
-logger.setLevel(logging.INFO)
-
-
-def mk_id(args):
-    digest = hashlib.blake2b()
-    for arg in args:
-        digest.update(bytes(json.dumps(arg), 'utf-8'))
-    return args[0] + digest.hexdigest()[-17:]
-
-
-def import_value(event, wex_data, resource):
-    region, account_id = event['region'], event['accountId']
-
-    parent_stack_name = wex_data['Regions'][region]['parent-stack-name']
-
-    for overrides in [
-            overrides['Overrides']
-            for overrides
-            in [wex_data, wex_data['Regions'][event['region']]]
-            if 'Overrides' in overrides
-            ]:
-        if account_id not in overrides:
-            continue
-
-        overrides = overrides[account_id]
-
-        if 'parent-stack-name' in overrides:
-            parent_stack_name = overrides['parent-stack-name']
-
-        if 'Resources' in overrides:
-            overrides = overrides['Resources']
-
-        if resource in overrides:
-            resource = overrides[resource]
-
-    value = resource[1:] if resource.startswith('@') else {
-            'Fn::ImportValue': f'{parent_stack_name}-{resource}'
-            }
-
-    return value
-
-
-def get_attr(resource_name, attribute_name):
-    return {
-            'Fn::GetAtt': [
-                resource_name,
-                attribute_name,
-                ]
-            }
-
-
 def handler(event, context):
     region, shared_arns = event['region'], list()
 
@@ -75,54 +21,54 @@ def handler(event, context):
                 'status': 'FAILURE',
                 }
 
-    if event['accountId'] in wex['Infoblox']['OnPremHub']:
-        # Create OnPrem rules if this is OnPremHub
-        for zone in wex['Infoblox']['OnPremZones']:
-            opz_rule_id = mk_id(
-                    [
-                        'rrOnPremZone',
-                        zone,
-                        region
-                        ]
-                    )
-            resources[opz_rule_id] = {
-                    'Type': 'AWS::Route53Resolver::ResolverRule',
-                    'Properties': {
-                        'RuleType': 'FORWARD',
-                        'DomainName': zone,
-                        'ResolverEndpointId': {
-                                'Fn::ImportValue':
-                                    'Route53-Outbound-Endpoint-Id',
-                            },
-                        'TargetIps': [
-                            {
-                                'Ip': target_ip,
-                                'Port': 53,
-                                }
-                            for target_ip
-                            in wex['Infoblox']['OnPremResolverIps']
-                            ],
+    # Create OnPrem rules if this is OnPremHub
+    for zone in wex['Infoblox']['OnPremZones']:
+        opz_rule_id = mk_id(
+                [
+                    'rrOnPremZone',
+                    zone,
+                    region
+                    ]
+                )
+
+        resources[opz_rule_id] = {
+                'Type': 'AWS::Route53Resolver::ResolverRule',
+                'Properties': {
+                    'RuleType': 'FORWARD',
+                    'DomainName': zone,
+                    'ResolverEndpointId': {
+                            'Fn::ImportValue':
+                                'Route53-Outbound-Endpoint-Id',
                         },
-                    }
+                    'TargetIps': [
+                        {
+                            'Ip': target_ip,
+                            'Port': 53,
+                            }
+                        for target_ip
+                        in wex['Infoblox']['OnPremResolverIps']
+                        ],
+                    },
+                }
 
-            opz_rule_assoc_id = mk_id(
-                    [
-                        'rrOnPremZoneAssoc',
-                        zone,
-                        region,
-                        ]
-                    )
-            resources[opz_rule_assoc_id] = {
-                    'Type': 'AWS::Route53Resolver::ResolverRuleAssociation',
-                    'Properties': {
-                        'ResolverRuleId': get_attr(opz_rule_id,
-                                                   'ResolverRuleId'),
-                        'VPCId': import_value(event, wex, 'Vpc-Id'),
-                        }
-                    }
+        opz_rule_assoc_id = mk_id(
+                [
+                    'rrOnPremZoneAssoc',
+                    zone,
+                    region,
+                    ]
+                )
 
-            # share this rule with peers
-            shared_arns.append(get_attr(opz_rule_id, 'Arn'))
+        resources[opz_rule_assoc_id] = {
+                'Type': 'AWS::Route53Resolver::ResolverRuleAssociation',
+                'Properties': {
+                    'ResolverRuleId': get_attr(opz_rule_id,
+                                               'ResolverRuleId'),
+                    'VPCId': import_value(event, wex, 'Vpc-Id'),
+                    }
+                }
+
+        shared_arns.append(get_attr(opz_rule_id, 'Arn'))
 
     # Share created ResolverRule(s)
     principals = set(wex['Infoblox']['Accounts']) \
