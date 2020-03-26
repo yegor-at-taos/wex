@@ -32,8 +32,12 @@ def handler(event, context):
         resources[hz_rule_id] = {
                 'Type': 'AWS::Route53Resolver::ResolverRule',
                 'Properties': {
-                    'RuleType': 'SYSTEM',
+                    'RuleType': 'FORWARD',
                     'DomainName': zone,
+                    'ResolverEndpointId': {
+                            'Fn::ImportValue':
+                                'Route53-Inbound-Endpoint-Id',
+                        },
                     },
                 }
 
