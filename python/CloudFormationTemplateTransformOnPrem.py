@@ -3,6 +3,7 @@ from copy import deepcopy
 import hashlib
 import json
 import logging
+import re
 
 def handler(event, context):
     region, shared_arns = event['region'], list()
@@ -49,13 +50,13 @@ def handler(event, context):
                         for target_ip
                         in wex['Infoblox']['OnPremResolverIps']
                         ],
-                    },
                     'Tags': deepcopy(wex['Tags']) + [
                         {
                             'Key': 'Name',
                             'Value': re.sub('\\.', '_', zone.strip())
                             }
                         ],
+                    },
                 }
 
         opz_rule_assoc_id = mk_id(

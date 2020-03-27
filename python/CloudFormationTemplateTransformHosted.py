@@ -4,6 +4,7 @@ from copy import deepcopy
 import hashlib
 import json
 import logging
+import re
 
 
 def retrieve_endpoint_ips():
@@ -81,13 +82,13 @@ def handler(event, context):
                         'Route53-Outbound-Endpoint-Id',
                         },
                     'TargetIps': retrieve_endpoint_ips(),
-                    },
                     'Tags': deepcopy(wex['Tags']) + [
                         {
                             'Key': 'Name',
                             'Value': re.sub('\\.', '_', zone.strip())
                             }
                         ],
+                    },
                 }
 
         hz_rule_assoc_id = mk_id(
