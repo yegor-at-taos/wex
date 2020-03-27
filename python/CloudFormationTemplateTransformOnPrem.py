@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+from copy import deepcopy
 import hashlib
 import json
 import logging
@@ -49,6 +50,12 @@ def handler(event, context):
                         in wex['Infoblox']['OnPremResolverIps']
                         ],
                     },
+                    'Tags': deepcopy(wex['Tags']) + [
+                        {
+                            'Key': 'Name',
+                            'Value': re.sub('\\.', '_', zone.strip())
+                            }
+                        ],
                 }
 
         opz_rule_assoc_id = mk_id(
@@ -90,7 +97,13 @@ def handler(event, context):
                     'Properties': {
                         'Name': f'Route53-OnPrem-Rules-Share-to-{principal}',
                         'ResourceArns': shared_arns,
-                        'Principals': [principal]
+                        'Principals': [principal],
+                        'Tags': deepcopy(wex['Tags']) + [
+                            {
+                                'Key': 'Name',
+                                'Value': f'Wex-OnPrem-Zones-Share-{principal}',
+                                },
+                            ],
                         }
                     }
 

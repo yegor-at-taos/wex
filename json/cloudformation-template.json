@@ -6,7 +6,27 @@
       "Tags": [
         {
           "Key": "Owner",
-          "Value": "yegor.gorshkov@wexinc.com"
+          "Value": "naidu.kandulapati@wexinc.com"
+        },
+        {
+          "Key": "Email",
+          "Value": "cloudeng@wexinc.com"
+        },
+        {
+          "Key": "BillingId",
+          "Value": "CE-90325"
+        },
+        {
+          "Key": "Application",
+          "Value": "WEX DNS"
+        },
+        {
+          "Key": "Environment",
+          "Value": "Prod"
+        },
+        {
+          "Key": "LOB",
+          "Value": "CE"
         }
       ],
       "Infoblox": {

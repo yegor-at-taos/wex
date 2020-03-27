@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+from copy import deepcopy
 import hashlib
 import json
 import logging
@@ -48,7 +49,8 @@ def handler(event, context):
                         'ToPort': -1,
                         },
                     ],
-                }
+                },
+                'Tags': deepcopy(wex['Tags']),
             }
 
     # In Resolver Endpoint
@@ -74,6 +76,7 @@ def handler(event, context):
                     get_attr(sg_in_id, 'GroupId'),
                     ],
                 },
+                'Tags': deepcopy(wex['Tags']),
             }
 
     outputs[ep_in_id] = {
@@ -102,6 +105,7 @@ def handler(event, context):
                 'GroupDescription': 'Outgoing DNS over IPv4',
                 'VpcId': import_value(event, wex, 'Vpc-Id'),
                 }
+                'Tags': deepcopy(wex['Tags']),
             }
 
     # Out Resolver Endpoint
@@ -122,6 +126,7 @@ def handler(event, context):
                     get_attr(sg_out_id, 'GroupId'),
                     ],
                 },
+                'Tags': deepcopy(wex['Tags']),
             }
 
     outputs[ep_out_id] = {

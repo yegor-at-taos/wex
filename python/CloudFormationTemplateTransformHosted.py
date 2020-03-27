@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import boto3
+from copy import deepcopy
 import hashlib
 import json
 import logging
@@ -81,6 +82,12 @@ def handler(event, context):
                         },
                     'TargetIps': retrieve_endpoint_ips(),
                     },
+                    'Tags': deepcopy(wex['Tags']) + [
+                        {
+                            'Key': 'Name',
+                            'Value': re.sub('\\.', '_', zone.strip())
+                            }
+                        ],
                 }
 
         hz_rule_assoc_id = mk_id(
@@ -122,10 +129,16 @@ def handler(event, context):
             resources[share_id] = {
                     'Type': 'AWS::RAM::ResourceShare',
                     'Properties': {
-                        'Name': f'Route53-Hosted-Rules-Share-to-{principal}',
+                        'Name': f'Wex-AWS-Zones-Share-{principal}',
                         'ResourceArns': shared_arns,
-                        'Principals': [principal]
-                        }
+                        'Principals': [principal],
+                        'Tags': deepcopy(wex['Tags']) + [
+                            {
+                                'Key': 'Name',
+                                'Value': f'Wex-AWS-Zones-Share-{principal}',
+                                },
+                            ],
+                        },
                     }
 
             auto_accept_id = mk_id(
