@@ -48,7 +48,7 @@ def handler(event, context):
                             'Port': 53,
                             }
                         for target_ip
-                        in wex['Infoblox']['OnPremResolverIps']
+                        in wex['Infoblox']['OnPremResolverIps'][region]
                         ],
                     'Tags': deepcopy(wex['Tags']) + [
                         {
