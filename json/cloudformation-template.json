@@ -10,25 +10,55 @@
         }
       ],
       "Infoblox": {
-        "OnPremZones": [
-        ],
-        "Accounts": {
-        },
-        "OnPremResolverIps": [
-          "10.94.1.77",
-          "10.94.5.87",
-          "10.97.1.99",
-          "10.98.1.166"
-        ]
+        "OnPremZones": [],
+        "Accounts": {},
+        "OnPremResolverIps": {
+          "us-east-1": [
+            "10.94.1.77",
+            "10.94.5.87",
+            "10.97.1.99",
+            "10.98.1.166"
+          ],
+          "us-west-2": [
+            "10.94.1.77",
+            "10.94.5.87",
+            "10.97.1.99",
+            "10.98.1.166"
+          ],
+          "eu-central-1": [
+            "10.94.1.77",
+            "10.94.5.87",
+            "10.97.1.99",
+            "10.98.1.166"
+          ],
+          "eu-west-1": [
+            "10.94.1.77",
+            "10.94.5.87",
+            "10.97.1.99",
+            "10.98.1.166"
+          ],
+          "ap-southeast-1": [
+            "10.94.1.77",
+            "10.94.5.87",
+            "10.97.1.99",
+            "10.98.1.166"
+          ],
+          "ap-southeast-2": [
+            "10.94.1.77",
+            "10.94.5.87",
+            "10.97.1.99",
+            "10.98.1.166"
+          ]
+        }
       },
       "Overrides": {
         "544308222195": {
-            "parent-stack-name": "Custodian-VPC",
-            "Resources": {
-                "Vpc-Id": "VpcId",
-                "PrivateSubnet1-Id": "@subnet-0a860dd075984960b",
-                "PrivateSubnet2-Id": "@subnet-028f92c3bf460e69b"
-            }
+          "parent-stack-name": "Custodian-VPC",
+          "Resources": {
+            "Vpc-Id": "VpcId",
+            "PrivateSubnet1-Id": "@subnet-0a860dd075984960b",
+            "PrivateSubnet2-Id": "@subnet-028f92c3bf460e69b"
+          }
         }
       },
       "Regions": {
@@ -51,12 +81,9 @@
           "parent-stack-name": "coreservices-prod-ue1-vpc-stk"
         }
       },
-      "Outputs": {
-      }
+      "Outputs": {}
     }
   },
-  "Transform": [
-  ],
-  "Outputs": {
-  }
+  "Transform": [],
+  "Outputs": {}
 }
