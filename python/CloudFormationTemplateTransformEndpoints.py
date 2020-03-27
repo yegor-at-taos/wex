@@ -32,7 +32,7 @@ def handler(event, context):
     resources[sg_in_id] = {
             'Type': 'AWS::EC2::SecurityGroup',
             'Properties': {
-                'GroupDescription': 'Incoming DNS over IPv4',
+                'GroupDescription': 'Incoming DNS over IPv4 + ICMP',
                 'VpcId': import_value(event, wex, 'Vpc-Id'),
                 'SecurityGroupIngress': [
                     {
@@ -40,7 +40,13 @@ def handler(event, context):
                         'IpProtocol': 'udp',
                         'FromPort': 53,
                         'ToPort': 53,
-                        }
+                        },
+                    {
+                        'CidrIp': '0.0.0.0/0',
+                        'IpProtocol': 'icmp',
+                        'FromPort': -1,
+                        'ToPort': -1,
+                        },
                     ],
                 }
             }

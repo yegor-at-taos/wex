@@ -1,6 +1,6 @@
 {
   "AWSTemplateFormatVersion": "2010-09-09",
-  "Description": "WEX Inc., AWS Lambda tools Objects.",
+  "Description": "WEX Inc., AWS Lambda tools (Functions, etc.)",
   "Resources": {
   },
   "Outputs": {
