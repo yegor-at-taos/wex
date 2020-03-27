@@ -27,6 +27,12 @@ fi
 
 cp $json_source $json
 
+# MAGIC: Pull the default Tags from the template
+default_tags=$(jq ".Mappings.Wex.Tags | . + [{
+    \"Key\": \"LastUpdatedTime\",
+    \"Value\": \"$(date --iso-8601=minutes)\"
+}]" $json_template)
+
 for script in $(ls python); do  # note that 'noglob' is ON
     python=$(remove_on_exit --suffix='.py')
 
@@ -99,12 +105,7 @@ EOF
                 "Role":  {
                     "Fn::ImportValue": "LambdaUtilsRole"
                 },
-                "Tags": [
-                    {
-                        "Key": "LastUpdatedTime",
-                        "Value": "$(date --iso-8601=minutes)"
-                    }
-                ]
+                "Tags": $default_tags
             }
         }
     }
