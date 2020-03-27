@@ -36,6 +36,7 @@ def handler(event, context):
         resources[opz_rule_id] = {
                 'Type': 'AWS::Route53Resolver::ResolverRule',
                 'Properties': {
+                    'Name': re.sub('\\.', '_', zone.strip()),
                     'RuleType': 'FORWARD',
                     'DomainName': zone,
                     'ResolverEndpointId': {
