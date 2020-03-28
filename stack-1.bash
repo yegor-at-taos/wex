@@ -38,14 +38,12 @@ for script in $(ls python); do  # note that 'noglob' is ON
 
     if [[ ! $script =~ '.py' ]]; then
         continue
-    elif [[ $script =~ 'CloudFormationTemplateTransform' ]]; then
+    else
         ed -s <<EOF
 r python/$script
 /^def handler/-1r python/python.include
 w $python
 EOF
-    else
-        cp python/$script $python
     fi
 
     flake8 $python

@@ -1,5 +1,6 @@
 #!/usr/bin/python3
 import boto3
+import hashlib
 import json
 import logging
 import urllib3
@@ -55,9 +56,16 @@ def send_response(status, event, context, data):
         "Content-Type": ""
     }
 
+    physical_resource_id = mk_id(
+            [
+                'ResolveRuleShare',
+                event["ResourceProperties"]["ResourceShareArn"],
+                ]
+            )
+
     request_body = {
         "Status": status,
-        "PhysicalResourceId": context.log_stream_name,
+        "PhysicalResourceId": physical_resource_id,
         "StackId": event["StackId"],
         "RequestId": event["RequestId"],
         "LogicalResourceId": event["LogicalResourceId"],
