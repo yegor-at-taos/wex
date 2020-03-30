@@ -1,6 +1,29 @@
-#!/bin/bash -ex
+#!/bin/bash -e
 
-for script in $(ls python); do
-    [[ ! $script =~ \\.py$ ]] && continue
-    flake8 python/$script
+cat <<EOF
+ #####   #    #  #    #  #    #     #    #    #   ####
+ #    #  #    #  ##   #  ##   #     #    ##   #  #    #
+ #    #  #    #  # #  #  # #  #     #    # #  #  #
+ #####   #    #  #  # #  #  # #     #    #  # #  #  ###
+ #   #   #    #  #   ##  #   ##     #    #   ##  #    #
+ #    #   ####   #    #  #    #     #    #    #   ####
+
+
+ #          #    #    #   #####   ####
+ #          #    ##   #     #    #
+ #          #    # #  #     #     ####
+ #          #    #  # #     #         #   ###     ###
+ #          #    #   ##     #    #    #   ###     ###
+ ######     #    #    #     #     ####    ###     ###
+EOF
+
+for script in python/*.py; do
+    flake8 "$script"
 done
+
+for script in stack-*.bash; do
+    [[ $script = 'shell-utils.bash' ]] && continue
+    shellcheck -x "$script" shell-utils.bash
+done
+
+exit 0
