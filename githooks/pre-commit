@@ -1,0 +1,6 @@
+#!/bin/bash -ex
+
+for script in $(ls python); do
+    [[ ! $script =~ \\.py$ ]] && continue
+    flake8 python/$script
+done
