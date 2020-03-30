@@ -28,7 +28,7 @@ cp "$json_source" "$json"
 
 # shellcheck disable=SC2045
 for script in $(ls python); do  # note that 'noglob' is ON
-    [[ ! $script =~ \\.py$ || $script = 'utilities.py' ]] && continue
+    [[ ! $script =~ \.py$ || $script = 'utilities.py' ]] && continue
 
     function=${script%.py}
 

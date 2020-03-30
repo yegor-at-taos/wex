@@ -6,7 +6,7 @@ import utilities
 
 
 def handler(event, context):
-    region, shared_arns = event['region'], list()
+    region, shared = event['region'], list()
 
     wex = event['fragment']['Mappings'].pop('Wex')
 
@@ -33,10 +33,12 @@ def handler(event, context):
                     ]
                 )
 
+        zone_name = re.sub('_$', '', re.sub('\\.', '_', zone.strip()))
+
         resources[opz_rule_id] = {
                 'Type': 'AWS::Route53Resolver::ResolverRule',
                 'Properties': {
-                    'Name': re.sub('\\.', '_', zone.strip()),
+                    'Name': zone_name,
                     'RuleType': 'FORWARD',
                     'DomainName': zone,
                     'ResolverEndpointId': {
@@ -54,7 +56,7 @@ def handler(event, context):
                     'Tags': deepcopy(wex['Tags']) + [
                         {
                             'Key': 'Name',
-                            'Value': re.sub('\\.', '_', zone.strip())
+                            'Value': zone_name,
                             }
                         ],
                     },
@@ -77,28 +79,32 @@ def handler(event, context):
                     }
                 }
 
-        shared_arns.append(utilities.get_attr(opz_rule_id, 'Arn'))
+        shared.append(opz_rule_id)
 
     # Share created ResolverRule(s)
     principals = set(wex['Infoblox']['Accounts']) \
         - set([event['accountId']])
 
-    if len(shared_arns) > 0 and len(principals) > 0:
+    if shared:
         for principal in list(principals):
             # one rule per principal
             share_id = utilities.mk_id(
                     [
                         'rsOnPermShareRules',
-                        principal,
                         region,
+                        principal,
                         ]
                     )
 
             resources[share_id] = {
                     'Type': 'AWS::RAM::ResourceShare',
                     'Properties': {
-                        'Name': f'Route53-OnPrem-Rules-Share-to-{principal}',
-                        'ResourceArns': shared_arns,
+                        'Name': f'Wex-OnPrem-Zones-Share-{principal}',
+                        'ResourceArns': [
+                                utilities.get_attr(shared_id, 'Arn')
+                                for shared_id
+                                in shared
+                            ],
                         'Principals': [principal],
                         'Tags': deepcopy(wex['Tags']) + [
                             {
@@ -106,7 +112,7 @@ def handler(event, context):
                                 'Value': f'Wex-OnPrem-Zones-Share-{principal}',
                                 },
                             ],
-                        }
+                        },
                     }
 
             auto_accept_id = utilities.mk_id(
@@ -129,6 +135,36 @@ def handler(event, context):
                         'Principal': principal,
                         'RoleARN': 'WEXRamCloudFormationCrossAccountRole'
                         }
+                    }
+
+            # Create one auto-association object per rule
+            # NOTE: rule_id s the same across the accounts. However,
+            # AWS documentation does not formally guarantee this.
+            for rule_id in shared:
+                auto_associate_id = utilities.mk_id(
+                        [
+                            'crHostedAutoAssociate',
+                            region,
+                            principal,
+                            rule_id,
+                            ]
+                        )
+
+            resources[auto_associate_id] = {
+                    'Type': 'AWS::CloudFormation::CustomResource',
+                    'Properties': {
+                        'ServiceToken': {
+                            'Fn::ImportValue':
+                                'CloudFormationAutoAssociateFunction:Arn'
+                            },
+                        'Principal': principal,
+                        'RuleId': utilities.get_attr(rule_id,
+                                                     'ResolverRuleId'),
+                        'RoleARN': utilities.cross_account_role,
+                        },
+                    'DependsOn': [
+                        auto_accept_id
+                        ],
                     }
 
     return {

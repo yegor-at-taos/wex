@@ -100,10 +100,22 @@
         "ap-southeast-2": {
           "parent-stack-name": "coreservices-prod-ue1-vpc-stk"
         }
-      },
-      "Outputs": {}
+      }
     }
   },
-  "Transform": [],
-  "Outputs": {}
+  "Parameters": {
+    "Instantiate": {
+      "Type": "String",
+      "AllowedValues": [
+        "Hosted",
+        "OnPrem"
+      ],
+      "Description": "Instantiate for Hosted or OnPrem zones"
+    }
+  },
+  "Resources": {},
+  "Outputs": {},
+  "Transform": [
+    "CloudFormationTemplateTransform"
+  ]
 }

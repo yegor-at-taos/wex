@@ -4,6 +4,7 @@ import logging
 import urllib3
 
 az_count = 2
+cross_account_role = 'WexRamCloudFormationCrossAccountRole'
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)

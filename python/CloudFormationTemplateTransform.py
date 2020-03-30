@@ -12,6 +12,21 @@ logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
 
+def handler(event, context):
+    try:
+        print(event)
+
+        return create_template(event, context)
+    except Exception as e:
+        print(e)
+
+        return {
+                'requestId': event['requestId'],
+                'status': 'FAILURE',
+                'fragment': event['fragment'],
+                }
+
+
 def retrieve_endpoint_ips():
     if 'AWS_UNITTEST_INBOUND_IPS' in os.environ:
         # We're running unit test, no AWS infrastructure is present
@@ -28,15 +43,16 @@ def retrieve_endpoint_ips():
 
     resolver_id = None
 
-    # TODO: handle multi page output correctly
-    # TODO: add error handling
+    # TODO:
+    # 1. handle multi page output correctly
+    # 2. clean error handling
     for export in cfm.list_exports()['Exports']:
         if export['Name'] == 'Route53-Inbound-Endpoint-Id':
             resolver_id = export['Value']
             break
 
     if resolver_id is None:
-        return None
+        raise RuntimeError("Can't retrieve resolver_id")
 
     value = list()
 
@@ -52,40 +68,36 @@ def retrieve_endpoint_ips():
                     }
                 )
 
+    if not value:
+        raise RuntimeError("Can't retrieve endpoint IP addresses")
+
     return value
 
 
-def handler(event, context):
+def create_template(event, context):
+    '''
+    Assuming the correct template; do not attempt to recover.
+    '''
     region, shared = event['region'], list()
 
     wex = event['fragment']['Mappings'].pop('Wex')
 
-    # allow append to existing 'Resources' section
-    if 'Resources' not in event['fragment']:
-        event['fragment']['Resources'] = dict()
+    kind = event['params']['Instantiate']
 
     resources = event['fragment']['Resources']
 
-    if region not in wex['Regions']:
-        # return error if created in unsupported region
-        logger.warn(f'Region {region} is not in the config.')
-        return {
-                'requestId': event['requestId'],
-                'status': 'FAILURE',
-                }
+    for zone in wex['Infoblox'][f'{kind}Zones']:
+        zone_name = re.sub('_$', '', re.sub('\\.', '_', zone.strip()))
 
-    for zone in wex['Infoblox']['HostedZones']:
-        hz_rule_id = utilities.mk_id(
+        rule_id = utilities.mk_id(
                 [
-                    'rrHostedZone',
+                    f'rr{kind}Zone',
                     zone,
                     region,
                     ]
                 )
 
-        zone_name = re.sub('_$', '', re.sub('\\.', '_', zone.strip()))
-
-        resources[hz_rule_id] = {
+        resources[rule_id] = {
                 'Type': 'AWS::Route53Resolver::ResolverRule',
                 'Properties': {
                     'Name': zone_name,
@@ -95,7 +107,6 @@ def handler(event, context):
                         'Fn::ImportValue':
                         'Route53-Outbound-Endpoint-Id',
                         },
-                    'TargetIps': retrieve_endpoint_ips(),
                     'Tags': deepcopy(wex['Tags']) + [
                         {
                             'Key': 'Name',
@@ -105,25 +116,42 @@ def handler(event, context):
                     },
                 }
 
-        hz_rule_assoc_id = utilities.mk_id(
+        # Update the rule; set outbound either to preconfigured IP (OnPrem)
+        # or to the incoming endpoint (Hosted)
+        if kind == 'Hosted':
+            resources[rule_id]['Properties']['TargetIps'] = \
+                    retrieve_endpoint_ips()
+        elif kind == 'OnPrem':
+            resources[rule_id]['Properties']['TargetIps'] = [
+                    {
+                        'Ip': target_ip,
+                        'Port': 53,
+                        }
+                    for target_ip
+                    in wex['Infoblox']['OnPremResolverIps'][region]
+                    ]
+        else:
+            raise RuntimeError(f'Transform type [{kind}] is invalid')
+
+        rule_assoc_id = utilities.mk_id(
                 [
-                    'raHostedZoneAssoc',
+                    f'ra{kind}ZoneAssoc',
                     zone,
                     region,
                     ]
                 )
-        resources[hz_rule_assoc_id] = {
-                'Type': 'AWS::Route53Resolver::ResolverRuleAssociation',  # noqa: E501
+        resources[rule_assoc_id] = {
+                'Type': 'AWS::Route53Resolver::ResolverRuleAssociation',
                 'Properties': {
-                    'ResolverRuleId': utilities.get_attr(hz_rule_id,
+                    'ResolverRuleId': utilities.get_attr(rule_id,
                                                          'ResolverRuleId'),
                     'VPCId': utilities.import_value(event, wex, 'Vpc-Id'),
                     }
                 }
 
-        shared.append(hz_rule_id)
+        shared.append(rule_id)
 
-    # Share created ResolverRule(s)
+    # Share created ResolverRule(s) to all principals (except self)
     principals = set(wex['Infoblox']['Accounts']) \
         - set([event['accountId']])
 
@@ -133,7 +161,7 @@ def handler(event, context):
             # Create one share with all rules per principal
             share_id = utilities.mk_id(
                     [
-                        'rsHostedResourceShare',
+                        f'rs{kind}ResourceShare',
                         region,
                         principal,
                         ]
@@ -142,7 +170,7 @@ def handler(event, context):
             resources[share_id] = {
                     'Type': 'AWS::RAM::ResourceShare',
                     'Properties': {
-                        'Name': f'Wex-AWS-Zones-Share-{principal}',
+                        'Name': f'Wex-{kind}-Zones-Share-{principal}',
                         'ResourceArns': [
                                 utilities.get_attr(shared_id, 'Arn')
                                 for shared_id
@@ -152,7 +180,7 @@ def handler(event, context):
                         'Tags': deepcopy(wex['Tags']) + [
                             {
                                 'Key': 'Name',
-                                'Value': f'Wex-AWS-Zones-Share-{principal}',
+                                'Value': f'Wex-{kind}-Zones-Share-{principal}',
                                 },
                             ],
                         },
@@ -161,7 +189,7 @@ def handler(event, context):
             # Create one auto-accept object per principal
             auto_accept_id = utilities.mk_id(
                     [
-                        'crHostedAutoAccept',
+                        f'cr{kind}AutoAccept',
                         region,
                         principal,
                         ]
@@ -179,9 +207,6 @@ def handler(event, context):
                         'Principal': principal,
                         'RoleARN': utilities.cross_account_role,
                         },
-                    'DependsOn': [
-                        share_id
-                        ],
                     }
 
             # Create one auto-association object per rule
@@ -190,7 +215,7 @@ def handler(event, context):
             for rule_id in shared:
                 auto_associate_id = utilities.mk_id(
                         [
-                            'crHostedAutoAssociate',
+                            'cr{kind}AutoAssociate',
                             region,
                             principal,
                             rule_id,
@@ -210,7 +235,7 @@ def handler(event, context):
                         'RoleARN': utilities.cross_account_role,
                         },
                     'DependsOn': [
-                        auto_accept_id
+                        auto_accept_id  # fire after share is accepted
                         ],
                     }
 
