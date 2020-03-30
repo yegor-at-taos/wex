@@ -209,7 +209,7 @@ def handler(event, context):
                         'RuleId': utilities.get_attr(rule_id,
                                                      'ResolverRuleId'),
                         'RoleARN':
-                        'WexRamCloudFormationCrossAccount',
+                        'WexRamCloudFormationCrossAccountRole',
                         },
                     'DependsOn': [
                         auto_accept_id

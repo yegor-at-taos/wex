@@ -127,7 +127,7 @@ def handler(event, context):
                         'ResourceShareArn': utilities.get_attr(share_id,
                                                                'Arn'),
                         'Principal': principal,
-                        'RoleARN': 'WEXRamCloudFormationCrossAccount'
+                        'RoleARN': 'WEXRamCloudFormationCrossAccountRole'
                         }
                     }
 

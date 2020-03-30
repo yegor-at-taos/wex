@@ -32,12 +32,15 @@ def handler(event, context):
                     'aws_session_token': peer['SessionToken'],
                     }
 
+            logger.debug(f'Access token: {access_token}')
+
             invitation = event["ResourceProperties"]["ResourceShareArn"]
 
-            accept_resource_share_invitation(access_token, invitation)
+            logger.debug(f'Invitation: {invitation}')
 
+            accept_resource_share_invitation(access_token, invitation)
         elif event["RequestType"] == "Delete":
-            logger.debug('Processing Delete')
+            logger.debug('Processing Delete; NOOP for now')
         else:
             logger.debug(f'Processing other: {event["RequestType"]}')
 

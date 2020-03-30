@@ -10,7 +10,7 @@ else
     ./csv-audit.py --generate > "$json_template"
 fi
 
-root="$account_name-cloudformation-hosted"
+root="$account_name-cfn-r53-hosted"
 stack_name="$root-$short_region-stk"
 
 json=$(remove_on_exit --suffix='.json')
