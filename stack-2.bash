@@ -18,7 +18,10 @@ jq ".Transform = [\"CloudFormationTemplateTransformEndpointsMacro\"]
     | .Description = \"WEX Inc., AWS Route 53 Resolver Endpoints and SGs\"" \
     "$json_template" > "$json"
 
+# Even though `Instantiate` is a required parameter, it is ignored
+# by this particular stack.
 aws --profile "wex-$profile" --region "$region" \
     cloudformation "$(create_or_update "$stack_name")-stack" \
     --stack-name "$stack_name" --template-body "file://$json" \
+    --parameters "ParameterKey=Instantiate,ParameterValue=Hosted" \
     --capabilities CAPABILITY_AUTO_EXPAND

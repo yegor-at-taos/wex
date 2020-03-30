@@ -65,8 +65,9 @@ def send_response(status, event, context, data):
 
     physical_resource_id = mk_id(
             [
-                'ResolveRuleShare',
-                event["ResourceProperties"]["ResourceShareArn"],
+                'customResource',
+                event["ServiceToken"],
+                event["LogicalResourceId"],
                 ]
             )
 

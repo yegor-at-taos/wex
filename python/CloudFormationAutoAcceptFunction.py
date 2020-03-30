@@ -12,83 +12,80 @@ def handler(event, context):
     print(event)
 
     try:
-        if event["RequestType"] == "Create":
-            logger.debug('Processing Delete')
-            role_arn = {
-                    'RoleArn': f'arn:aws:iam::'
-                    f'{event["ResourceProperties"]["Principal"]}'
-                    f':role/{event["ResourceProperties"]["RoleARN"]}',
-                    'RoleSessionName': 'cross_account_lambda'
-                    }
+        if event['RequestType'] == 'Create':
+            logger.debug('Processing Create')
 
-            logger.debug(f'Remote role ARN: {role_arn}')
+            accept_resource_share_invitation(event, context)
 
-            client = boto3.client('sts')
-            peer = client.assume_role(**role_arn)['Credentials']
+        elif event['RequestType'] == 'Delete':
+            logger.debug('Processing Delete; NOOP')
 
-            access_token = {
-                    'aws_access_key_id': peer['AccessKeyId'],
-                    'aws_secret_access_key': peer['SecretAccessKey'],
-                    'aws_session_token': peer['SessionToken'],
-                    }
-
-            logger.debug(f'Access token: {access_token}')
-
-            invitation = event["ResourceProperties"]["ResourceShareArn"]
-
-            logger.debug(f'Invitation: {invitation}')
-
-            accept_resource_share_invitation(access_token, invitation)
-        elif event["RequestType"] == "Delete":
-            logger.debug('Processing Delete; NOOP for now')
         else:
-            logger.debug(f'Processing other: {event["RequestType"]}')
+            logger.debug(f'Processing other: {event["RequestType"]}; NOOP')
+
+        utilities.send_response('SUCCESS', event, context, dict())
 
     except Exception as e:
-        # report 'SUCCESS' even if ack had been failed
-        logger.error(f'An error occured: {e}')
+        logger.error(f'An error occured: {e}; sending FAILURE')
+        utilities.send_response('FAILURE', event, context, dict())
 
-    utilities.send_response("SUCCESS", event, context, dict())
+    logger.debug('Done')
 
 
-def accept_resource_share_invitation(access_token, invitation):
-    try:
-        # check if resource share is already accepted (eg. 'AutoAccept' in on)
-        # we can cheat here and use this account without assuming the role
-        client = boto3.client('ram')
+def accept_resource_share_invitation(event, context):
+    # Check if resource share is already accepted (via 'AutoAccept')
+    # we can cheat here and use this account without assuming the role
+    invitation = event['ResourceProperties']['ResourceShareArn']
 
-        request = {
-                'resourceShareArns': [
-                    invitation,
-                    ],
-                'resourceOwner': 'SELF'
-                }
-        response = client.get_resource_shares(**request)
+    request = {
+            'resourceShareArns': [
+                invitation,
+                ],
+            'resourceOwner': 'SELF'
+            }
 
-        pending = None
-        for resourceShare in response['resourceShares']:
-            if 'status' in resourceShare:
-                if resourceShare['status'] == 'ACTIVE':
-                    logger.info(f'Resource share is already ACTIVE')
-                    return
+    client = boto3.client('ram')
+    response = client.get_resource_shares(**request)
 
-                if resourceShare['status'] == 'PENDING':
-                    pending = True
-                    break
+    pending = None
+    for resourceShare in response['resourceShares']:
+        if 'status' in resourceShare:
+            if resourceShare['status'] == 'ACTIVE':
+                logger.info(f'Resource share is already ACTIVE')
+                return
 
+            elif resourceShare['status'] == 'PENDING':
+                pending = True
+                break
+
+            else:
                 raise ValueError(f'Wrong ResourceShare status')
 
-        if not pending:
-            raise ValueError(f'ResourceShare not found')
+    if not pending:
+        raise ValueError(f'ResourceShare not found')
 
-        client = boto3.client('ram', **access_token)
+    role_arn = {
+            'RoleArn': f'arn:aws:iam::'
+            f'{event["ResourceProperties"]["Principal"]}'
+            f':role/{event["ResourceProperties"]["RoleARN"]}',
+            'RoleSessionName': 'cross_account_lambda'
+            }
+    logger.debug(f'Using remote role ARN: {role_arn}')
 
-        request = {
-                'resourceShareInvitationArn': invitation,
-                }
+    client = boto3.client('sts')
+    peer = client.assume_role(**role_arn)['Credentials']
 
-        # never mind the returned status as it is not a requirement
-        client.accept_resource_share_invitation(**request)
-    except Exception as e:
-        logger.error(f'Error occured while checking if share is accepted: {e}')
-        raise
+    access_token = {
+            'aws_access_key_id': peer['AccessKeyId'],
+            'aws_secret_access_key': peer['SecretAccessKey'],
+            'aws_session_token': peer['SessionToken'],
+            }
+    request = {
+            'resourceShareInvitationArn': invitation,
+            }
+    logger.debug(f'Using: {access_token}, {request}')
+
+    client = boto3.client('ram', **access_token)
+    response = client.accept_resource_share_invitation(**request)
+
+    print(response)

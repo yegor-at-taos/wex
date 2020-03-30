@@ -33,7 +33,7 @@
   },
   {
     "ParameterKey": "Environment",
-    "ParameterValue": "prod"
+    "ParameterValue": "stage"
   },
   {
     "ParameterKey": "CreateFlowLogRole",

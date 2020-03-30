@@ -5,6 +5,22 @@ import utilities
 
 
 def handler(event, context):
+    try:
+        print(event)
+
+        return create_template(event, context)
+
+    except Exception as e:
+        print(e)
+
+        return {
+                'requestId': event['requestId'],
+                'status': 'BIGBADABOOM',  # anything but SUCCESS in a failure
+                'fragment': event['fragment'],
+                }
+
+
+def create_template(event, context):
     region = event['region']
 
     wex = event['fragment']['Mappings'].pop('Wex')

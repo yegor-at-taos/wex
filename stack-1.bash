@@ -36,7 +36,7 @@ for script in $(ls python); do  # note that 'noglob' is ON
 
     flake8 "python/$script" python/utilities.py
 
-    zip -9j "$zipfile" "python/$script" python/utilities.py
+    zip -9jq "$zipfile" "python/$script" python/utilities.py
 
     # the container could be named anything; see S3Key in Resources
     aws --profile "wex-$profile" --region "$region" \

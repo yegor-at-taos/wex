@@ -12,80 +12,72 @@ def handler(event, context):
     print(event)
 
     try:
-        if event["RequestType"] == "Create":
-            logger.debug('Processing Delete')
-            role_arn = {
-                    'RoleArn': f'arn:aws:iam::'
-                    f'{event["ResourceProperties"]["Principal"]}'
-                    f':role/{event["ResourceProperties"]["RoleARN"]}',
-                    'RoleSessionName': 'cross_account_lambda'
-                    }
+        if event['RequestType'] == 'Create':
+            logger.debug('Processing Create')
 
-            logger.debug(f'Remote role ARN: {role_arn}')
+            associate_rule_to_the_vpc(event, context)
 
-            client = boto3.client('sts')
-            peer = client.assume_role(**role_arn)['Credentials']
+        elif event['RequestType'] == 'Delete':
+            logger.debug('Processing Delete; NOOP')
 
-            access_token = {
-                    'aws_access_key_id': peer['AccessKeyId'],
-                    'aws_secret_access_key': peer['SecretAccessKey'],
-                    'aws_session_token': peer['SessionToken'],
-                    }
-
-            invitation = event["ResourceProperties"]["ResourceShareArn"]
-
-            accept_resource_share_invitation(access_token, invitation)
-
-        elif event["RequestType"] == "Delete":
-            logger.debug('Processing Delete')
         else:
-            logger.debug(f'Processing other: {event["RequestType"]}')
+            logger.debug(f'Processing other: {event["RequestType"]}; NOOP')
+
+        utilities.send_response('SUCCESS', event, context, dict())
 
     except Exception as e:
-        # report 'SUCCESS' even if ack had been failed
-        logger.error(f'An error occured: {e}')
+        logger.error(f'An error occured: {e}; sending FAILURE')
+        utilities.send_response('FAILURE', event, context, dict())
 
-    utilities.send_response("SUCCESS", event, context, dict())
+    logger.debug('Done')
 
 
-def accept_resource_share_invitation(access_token, invitation):
-    try:
-        # check if resource share is already accepted (eg. 'AutoAccept' in on)
-        # we can cheat here and use this account without assuming the role
-        client = boto3.client('ram')
+def generate_access_token(event, context):
+    role_arn = {
+            'RoleArn': f'arn:aws:iam::'
+            f'{event["ResourceProperties"]["Principal"]}'
+            f':role/{event["ResourceProperties"]["RoleARN"]}',
+            'RoleSessionName': 'cross_account_lambda'
+            }
+    logger.debug(f'Using remote role ARN: {role_arn}')
 
-        request = {
-                'resourceShareArns': [
-                    invitation,
-                    ],
-                'resourceOwner': 'SELF'
-                }
-        response = client.get_resource_shares(**request)
+    client = boto3.client('sts')
+    peer = client.assume_role(**role_arn)['Credentials']
 
-        pending = None
-        for resourceShare in response['resourceShares']:
-            if 'status' in resourceShare:
-                if resourceShare['status'] == 'ACTIVE':
-                    logger.info(f'Resource share is already ACTIVE')
-                    return
+    return {
+            'aws_access_key_id': peer['AccessKeyId'],
+            'aws_secret_access_key': peer['SecretAccessKey'],
+            'aws_session_token': peer['SessionToken'],
+            }
 
-                if resourceShare['status'] == 'PENDING':
-                    pending = True
-                    break
 
-                raise ValueError(f'Wrong ResourceShare status')
+def associate_rule_to_the_vpc(event, context):
+    access_token = generate_access_token(event, context)
+    request = {
+            }
 
-        if not pending:
-            raise ValueError(f'ResourceShare not found')
+    # TODO: Handle more than 100 exports (see `NextToken`)
+    client = boto3.client('cloudformation', **access_token)
+    response = client.list_exports(**request)
 
-        client = boto3.client('ram', **access_token)
+    print(f'list_exports: {response}')
 
-        request = {
-                'resourceShareInvitationArn': invitation,
-                }
+    vpc_id = None
+    for export in response['Exports']:
+        # TODO: Generate real export name, like:
+        #   `coreservices-stage-ue1-vpc-stk-Vpc-Id`
+        if export['Name'].endswith('-vpc-stk-Vpc-Id'):
+            vpc_id = export['Value']
+            break
 
-        # never mind the returned status as it is not a requirement
-        client.accept_resource_share_invitation(**request)
-    except Exception as e:
-        logger.error(f'Error occured while checking if share is accepted: {e}')
-        raise
+    if not vpc_id:
+        raise RuntimeError(f'Remote export for Vpc-Id not found')
+
+    access_token = generate_access_token(event, context)
+    request = {
+            'ResolverRuleId': event['ResourceProperties']['RuleId'],
+            'VPCId': vpc_id,
+            }
+
+    client = boto3.client('route53resolver', **access_token)
+    response = client.associate_resolver_rule(**request)

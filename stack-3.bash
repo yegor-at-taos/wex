@@ -10,15 +10,15 @@ else
     ./csv-audit.py --generate > "$json_template"
 fi
 
-root="$account_name-cfn-r53-onprem"
+root="$account_name-cfn-r53-hosted"
 stack_name="$root-$short_region-stk"
 
 json=$(remove_on_exit --suffix='.json')
-jq ".Transform = [\"CloudFormationTemplateTransformOnPremMacro\"]
-    | .Description = \"WEX Inc., AWS Route 53 Resolver OnPrem rules and shares\"" \
+jq ".Description = \"WEX Inc., AWS Route 53 Resolver Hosted rules and shares\"" \
     "$json_template" > "$json"
 
 aws --profile "wex-$profile" --region "$region" \
     cloudformation "$(create_or_update "$stack_name")-stack" \
     --stack-name "$stack_name" --template-body "file://$json" \
+    --parameters "ParameterKey=Instantiate,ParameterValue=OnPrem" \
     --capabilities CAPABILITY_AUTO_EXPAND

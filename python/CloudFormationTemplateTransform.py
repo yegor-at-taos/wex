@@ -17,13 +17,15 @@ def handler(event, context):
         print(event)
 
         return create_template(event, context)
+
     except Exception as e:
         print(e)
 
         return {
                 'requestId': event['requestId'],
-                'status': 'FAILURE',
+                'status': 'BIGBADABOOM',  # anything but SUCCESS is a failure
                 'fragment': event['fragment'],
+                'errorMessage': f'{e}',
                 }
 
 
@@ -82,7 +84,7 @@ def create_template(event, context):
 
     wex = event['fragment']['Mappings'].pop('Wex')
 
-    kind = event['params']['Instantiate']
+    kind = event['templateParameterValues']['Instantiate']
 
     resources = event['fragment']['Resources']
 
@@ -215,7 +217,7 @@ def create_template(event, context):
             for rule_id in shared:
                 auto_associate_id = utilities.mk_id(
                         [
-                            'cr{kind}AutoAssociate',
+                            f'cr{kind}AutoAssociate',
                             region,
                             principal,
                             rule_id,
