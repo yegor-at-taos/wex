@@ -78,7 +78,8 @@ class WexAnalyzer:
 
             for zone_id in account[1]:
                 # aggregate wexglobal.com
-                hosted_zone = re.sub('\.*$', '', csv_name[zone_id][5:].strip())
+                hosted_zone = re.sub('\\.*$', '',
+                                     csv_name[zone_id][5:].strip())
                 hosted_zone = hosted_zone.split('.')
 
                 if hosted_zone[-1].endswith('failed'):

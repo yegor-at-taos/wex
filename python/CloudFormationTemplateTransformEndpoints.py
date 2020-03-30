@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 from copy import deepcopy
-import hashlib
-import json
-import logging
+
+import utilities
+
 
 def handler(event, context):
     region = event['region']
@@ -24,7 +24,7 @@ def handler(event, context):
                 }
 
     # In Security Group
-    sg_in_id = mk_id(
+    sg_in_id = utilities.mk_id(
             [
                 'rrInSG',
                 region,
@@ -34,7 +34,7 @@ def handler(event, context):
             'Type': 'AWS::EC2::SecurityGroup',
             'Properties': {
                 'GroupDescription': 'Incoming DNS over IPv4 + ICMP',
-                'VpcId': import_value(event, wex, 'Vpc-Id'),
+                'VpcId': utilities.import_value(event, wex, 'Vpc-Id'),
                 'SecurityGroupIngress': [
                     {
                         'CidrIp': '0.0.0.0/0',
@@ -54,7 +54,7 @@ def handler(event, context):
             }
 
     # In Resolver Endpoint
-    ep_in_id = mk_id(
+    ep_in_id = utilities.mk_id(
             [
                 'rrInEndpoint',
                 region
@@ -66,14 +66,16 @@ def handler(event, context):
                 'Direction': 'INBOUND',
                 'IpAddresses': [
                     {
-                        'SubnetId': import_value(event, wex,
-                                                 f'PrivateSubnet{i+1}-Id')
+                        'SubnetId':
+                        utilities.import_value(event,
+                                               wex,
+                                               f'PrivateSubnet{i+1}-Id')
                         }
                     for i
-                    in range(az_count)
+                    in range(utilities.az_count)
                     ],
                 'SecurityGroupIds': [
-                    get_attr(sg_in_id, 'GroupId'),
+                    utilities.get_attr(sg_in_id, 'GroupId'),
                     ],
                 'Tags': deepcopy(wex['Tags']),
                 },
@@ -93,7 +95,7 @@ def handler(event, context):
             }
 
     # Out Security Group
-    sg_out_id = mk_id(
+    sg_out_id = utilities.mk_id(
             [
                 'rrOutSG',
                 region,
@@ -103,27 +105,29 @@ def handler(event, context):
             'Type': 'AWS::EC2::SecurityGroup',
             'Properties': {
                 'GroupDescription': 'Outgoing DNS over IPv4',
-                'VpcId': import_value(event, wex, 'Vpc-Id'),
+                'VpcId': utilities.import_value(event, wex, 'Vpc-Id'),
                 'Tags': deepcopy(wex['Tags']),
                 },
             }
 
     # Out Resolver Endpoint
-    ep_out_id = mk_id(['rrOutEndpoint', region[0], wex])
+    ep_out_id = utilities.mk_id(['rrOutEndpoint', region[0], wex])
     resources[ep_out_id] = {
             'Type': 'AWS::Route53Resolver::ResolverEndpoint',
             'Properties': {
                 'Direction': 'OUTBOUND',
                 'IpAddresses': [
                     {
-                        'SubnetId': import_value(event, wex,
-                                                 f'PrivateSubnet{i+1}-Id')
+                        'SubnetId':
+                        utilities.import_value(event,
+                                               wex,
+                                               f'PrivateSubnet{i+1}-Id')
                         }
                     for i
-                    in range(az_count)
+                    in range(utilities.az_count)
                     ],
                 'SecurityGroupIds': [
-                    get_attr(sg_out_id, 'GroupId'),
+                    utilities.get_attr(sg_out_id, 'GroupId'),
                     ],
                 'Tags': deepcopy(wex['Tags']),
                 },

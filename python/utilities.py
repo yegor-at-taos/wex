@@ -1,3 +1,8 @@
+import json
+import hashlib
+import logging
+import urllib3
+
 az_count = 2
 
 logger = logging.getLogger()
@@ -52,3 +57,38 @@ def get_attr(resource_name, attribute_name):
     }
 
 
+def send_response(status, event, context, data):
+    headers = {
+        "Content-Type": ""
+    }
+
+    physical_resource_id = mk_id(
+            [
+                'ResolveRuleShare',
+                event["ResourceProperties"]["ResourceShareArn"],
+                ]
+            )
+
+    request_body = {
+        "Status": status,
+        "PhysicalResourceId": physical_resource_id,
+        "StackId": event["StackId"],
+        "RequestId": event["RequestId"],
+        "LogicalResourceId": event["LogicalResourceId"],
+        "Data": data
+    }
+
+    http = urllib3.PoolManager()
+
+    try:
+        response = http.request(
+                'PUT',
+                event["ResponseURL"],
+                headers=headers,
+                body=json.dumps(request_body),
+                retries=False
+                )
+    except Exception as e:
+        logger.error(f'An error occured: {e}')
+
+    logger.debug(f"Response status code: {response.status}")

@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 from copy import deepcopy
-import hashlib
-import json
-import logging
 import re
+
+import utilities
+
 
 def handler(event, context):
     region, shared_arns = event['region'], list()
@@ -25,7 +25,7 @@ def handler(event, context):
 
     # Create OnPrem rules if this is OnPremHub
     for zone in wex['Infoblox']['OnPremZones']:
-        opz_rule_id = mk_id(
+        opz_rule_id = utilities.mk_id(
                 [
                     'rrOnPremZone',
                     zone,
@@ -60,9 +60,9 @@ def handler(event, context):
                     },
                 }
 
-        opz_rule_assoc_id = mk_id(
+        opz_rule_assoc_id = utilities.mk_id(
                 [
-                    'rrOnPremZoneAssoc',
+                    'raOnPremZoneAssoc',
                     zone,
                     region,
                     ]
@@ -71,13 +71,13 @@ def handler(event, context):
         resources[opz_rule_assoc_id] = {
                 'Type': 'AWS::Route53Resolver::ResolverRuleAssociation',
                 'Properties': {
-                    'ResolverRuleId': get_attr(opz_rule_id,
-                                               'ResolverRuleId'),
-                    'VPCId': import_value(event, wex, 'Vpc-Id'),
+                    'ResolverRuleId': utilities.get_attr(opz_rule_id,
+                                                         'ResolverRuleId'),
+                    'VPCId': utilities.import_value(event, wex, 'Vpc-Id'),
                     }
                 }
 
-        shared_arns.append(get_attr(opz_rule_id, 'Arn'))
+        shared_arns.append(utilities.get_attr(opz_rule_id, 'Arn'))
 
     # Share created ResolverRule(s)
     principals = set(wex['Infoblox']['Accounts']) \
@@ -86,9 +86,9 @@ def handler(event, context):
     if len(shared_arns) > 0 and len(principals) > 0:
         for principal in list(principals):
             # one rule per principal
-            share_id = mk_id(
+            share_id = utilities.mk_id(
                     [
-                        'rrOnPermShareRules',
+                        'rsOnPermShareRules',
                         principal,
                         region,
                         ]
@@ -109,9 +109,9 @@ def handler(event, context):
                         }
                     }
 
-            auto_accept_id = mk_id(
+            auto_accept_id = utilities.mk_id(
                     [
-                        'rrAutoAccept',
+                        'crAutoAccept',
                         region,
                         share_id,
                         ]
@@ -124,11 +124,10 @@ def handler(event, context):
                             'Fn::ImportValue':
                                 'CloudFormationAutoAcceptFunction:Arn'
                             },
-                        'ResourceShareArn': get_attr(share_id, 'Arn'),
+                        'ResourceShareArn': utilities.get_attr(share_id,
+                                                               'Arn'),
                         'Principal': principal,
-                        'RoleARN':
-                            'WEXResourceAccessManager'
-                            'AcceptResourceShareInvitation',
+                        'RoleARN': 'WEXRamCloudFormationCrossAccount'
                         }
                     }
 

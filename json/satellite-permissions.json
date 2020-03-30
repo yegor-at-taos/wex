@@ -1,0 +1,69 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "WEX Inc., AWS CloudFormation cross-account role.",
+  "Resources": {
+    "WexRamCloudFormationCrossAccountRole": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "RoleName": "WexRamCloudFormationCrossAccountRole",
+        "AssumeRolePolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "AWS": [
+                  "672442290193",
+                  "544308222195",
+                  "189106039250"
+                ]
+              },
+              "Condition": {
+                "StringEquals": {
+                  "iam:AWSServiceName": "lambda.amazonaws.com"
+                }
+              },
+              "Action": [
+                "sts:AssumeRole"
+              ]
+            }
+          ]
+        },
+        "Policies": [
+          {
+            "PolicyName": "root",
+            "PolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                      "ram:AcceptResourceShareInvitation",
+                      "cloudformation:ListExports",
+                      "route53resolver:AssociateResolverRule"
+                  ],
+                  "Resource": "*"
+                }
+              ]
+            }
+          }
+        ],
+        "Tags": []
+      }
+    }
+  },
+  "Outputs": {
+    "WexRamCloudFormationCrossAccountRoleExport": {
+      "Description": "WEX Inc., CloudFormation cross-account role",
+      "Value": {
+        "Fn::GetAtt": [
+          "WexRamCloudFormationCrossAccountRole",
+          "Arn"
+        ]
+      },
+      "Export": {
+        "Name": "WexRamCloudFormationCrossAccountRole"
+      }
+    }
+  }
+}

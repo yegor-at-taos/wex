@@ -3,6 +3,7 @@ import json
 import sys
 
 sys.path.insert(1, '.')
+sys.path.insert(1, './python')
 
 from python import CloudFormationTemplateTransformHosted
 

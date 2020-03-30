@@ -2,9 +2,10 @@
   "AWSTemplateFormatVersion": "2010-09-09",
   "Description": "WEX Inc., AWS Lambda tools Role.",
   "Resources": {
-    "LambdaUtilsRole": {
+    "WexCloudFormationLambdaUtilitiesRole": {
       "Type": "AWS::IAM::Role",
       "Properties": {
+        "RoleName": "AWS::NoValue",
         "AssumeRolePolicyDocument": {
           "Version": "2012-10-17",
           "Statement": [
@@ -37,26 +38,21 @@
             }
           }
         ],
-        "Tags": [
-          {
-            "Key": "LastUpdatedTime",
-            "Value": "%%% TO BE UPDATED %%%"
-          }
-        ]
+        "Tags": []
       }
     }
   },
   "Outputs": {
-    "LambdaUtilsRole": {
+    "WexCloudFormationLambdaUtilitiesExport": {
       "Description": "IAM Role for CloudFormation Lambda Utils",
       "Value": {
         "Fn::GetAtt": [
-          "LambdaUtilsRole",
+          "WexCloudFormationLambdaUtilitiesRole",
           "Arn"
         ]
       },
       "Export": {
-        "Name": "LambdaUtilsRole"
+        "Name": "WexCloudFormationLambdaUtilitiesRole:Arn"
       }
     }
   }

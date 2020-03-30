@@ -2,17 +2,18 @@
 set -o errexit -o pipefail -o nounset -o noglob
 
 remove_on_exit() {
-    file=$(mktemp -u $*)
-    echo $file >> $remove_on_exit_file
-    echo $file
+    file=$(mktemp -u "$@")
+    echo "$file" >> "$remove_on_exit_file"
+    echo "$file"
 }
 
-remove_on_exit_file=$(mktemp --suffix=.text)
-echo $remove_on_exit_file > $remove_on_exit_file
+remove_on_exit_file=$(mktemp --suffix=".text")
+echo "$remove_on_exit_file" > "$remove_on_exit_file"
 
 cleanup() {
     trap - EXIT
-    rm -f $(cat $remove_on_exit_file)
+    # shellcheck disable=SC2046
+    rm -f $(cat "$remove_on_exit_file")
 }
 trap cleanup EXIT
 
@@ -21,13 +22,13 @@ create_or_update() {
     while true; do
         local temp
 
-        temp=$(remove_on_exit --suffix=.json)
+        temp=$(remove_on_exit --suffix=".json")
 
-        aws --profile wex-$profile --region $region \
-            cloudformation list-stacks > $temp
+        aws --profile "wex-$profile" --region "$region" \
+            cloudformation list-stacks > "$temp"
 
         count=$(jq "[.StackSummaries[] | select(.StackName == \"$1\")]
-            | length" $temp)
+            | length" "$temp")
 
         if [[ $count -eq 0 ]]; then
             echo 'create'
@@ -35,7 +36,7 @@ create_or_update() {
         fi
 
         status=$(jq "[.StackSummaries[]
-            | select(.StackName == \"$1\")][0].StackStatus" $temp)
+            | select(.StackName == \"$1\")][0].StackStatus" "$temp")
 
         [[ ! $status =~ '_IN_PROGRESS' ]] && break  # object is stable
 
@@ -43,7 +44,7 @@ create_or_update() {
     done
 
     status=$(jq "[.StackSummaries[] |
-            select(.StackName == \"$1\")][0].DeletionTime" $temp)
+            select(.StackName == \"$1\")][0].DeletionTime" "$temp")
 
     if [[ $status = 'null' ]]; then
         echo 'update'  # no 'DeletionTime'; update an existing object
@@ -55,30 +56,35 @@ create_or_update() {
 account_name() {
     if [[ $1 = 'taos' ]]; then
         echo 'coreservices-mock'
-        return
-    fi
-    name=$(jq ".[\"$1\"]" shell-utils.json)
-    if [[ $name = 'null' ]]; then
-        echo Account not found: $1  # no name in Okta
-        exit 1
+    elif [[ $1 = 'taos-satellite' ]]; then
+        echo 'coreservices-mock-satellite'
     else
-        echo $name | sed -e 's/"//g'
+        name=$(jq ".[\"$1\"]" shell-utils.json)
+        if [[ $name = 'null' ]]; then
+            echo "Account not found: $1"  # no name in Okta
+            exit 1
+        else
+            echo "${name//\"/}"
+        fi
     fi
 }
 
 short_region() {
-    sed -e 's/\(.\)\w*-/\1/g' <<< $1
+    sed -e 's/\(.\)\w*-/\1/g' <<< "$1"
 }
 
 if [[ $# = 2 ]]; then  # profile and region provided
     profile=$1
     region=$2
-elif [[ $# = 1 && $1 = 'wex' ]]; then  # 'wex' shortcut
+elif [[ $# = 1 && $1 = 'wex' ]]; then
     profile='544308222195'
     region='us-east-1'
-elif [[ $# = 1 && $1 = 'taos' ]]; then  # 'taos' shortcut
-    profile='taos'
-    region='us-west-2'
+elif [[ $# = 1 && $1 = 'taos' ]]; then
+    profile=$1
+    region='us-east-1'
+elif [[ $# = 1 && $1 = 'taos-satellite' ]]; then
+    profile=$1
+    region='us-east-1'
 else
     echo "*  Usage error."
     echo "You should provide one of the following:"
@@ -88,9 +94,11 @@ else
 fi
 
 short_region=$(short_region $region)
+# shellcheck disable=SC2034
+upper_region=$(tr '[:lower:]' '[:upper:]' <<< "$short_region")
 
-account_name=$(account_name $profile)
-if [[ $account_name = $profile ]]; then
+account_name=$(account_name "$profile")
+if [[ $account_name = "$profile" ]]; then
     echo "No human-readable name for ($profile) found, using 'aws-' prefix" 1>&2
     account_name="aws-$account_name"
 fi
@@ -98,7 +106,7 @@ fi
 json_template=$(remove_on_exit --suffix='.json')
 
 if [[ -f 'mock/infra-mock.json' ]]; then
-     jq . 'mock/infra-mock.json' > $json_template
+     jq . 'mock/infra-mock.json' > "$json_template"
 else
-    ./csv-audit.py --generate > $json_template
+    ./csv-audit.py --generate > "$json_template"
 fi
