@@ -99,6 +99,12 @@ class WexAnalyzer:
         tmpl['Mappings']['Wex']['Infoblox']['OnPremZones'] = \
             sorted(list(unbound.zones()))
 
+        if self.args.generate == 'Hosted':
+            del infoblox['OnPremZones']
+            del infoblox['OnPremResolverIps']
+        elif self.args.generate == 'OnPrem':
+            del infoblox['HostedZones']
+
         print(json.dumps(tmpl, indent=2))
 
     def run(self):
@@ -110,6 +116,9 @@ class WexAnalyzer:
             csv_name.update(s_name)
 
         if self.args.generate:
+            if self.args.generate not in ['OnPrem', 'Hosted']:
+                raise ValueError(f'Can generate OnPrem|Hosted, got:'
+                                 f'{self.args.generate}')
             self.generate(csv_data, csv_name)
         elif self.args.accounts:
             # used to generate access credentials
@@ -179,8 +188,8 @@ parser.add_argument("-f", "--file", type=str,
                     default="infra/WEX-AWS-?.csv")
 parser.add_argument("-l", "--logging", type=str,
                     help="logging level", default="WARN")
-parser.add_argument("-g", "--generate", action='store_true',
-                    help="Generate config from CSV",
+parser.add_argument("-g", "--generate", type=str,
+                    help="Generate OnPrem|Hosted config from CSV",
                     default=False)
 parser.add_argument("-a", "--accounts", action='store_true',
                     help="Generate config from CSV",

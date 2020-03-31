@@ -20,7 +20,7 @@ cat <<EOF
  ######     #    #    #     #     ####    ###     ###
 EOF
 
-for script in python/*.py; do
+for script in csv-audit.py python/*.py; do
     flake8 "$script"
 done
 

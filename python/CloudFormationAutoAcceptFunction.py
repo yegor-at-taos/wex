@@ -9,8 +9,6 @@ logger.setLevel(logging.DEBUG)
 
 
 def handler(event, context):
-    print(event)
-
     try:
         if event['RequestType'] == 'Create':
             logger.debug('Processing Create')
@@ -87,5 +85,3 @@ def accept_resource_share_invitation(event, context):
 
     client = boto3.client('ram', **access_token)
     response = client.accept_resource_share_invitation(**request)
-
-    print(response)

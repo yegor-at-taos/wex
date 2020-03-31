@@ -9,8 +9,6 @@ logger.setLevel(logging.DEBUG)
 
 
 def handler(event, context):
-    print(event)
-
     try:
         if event['RequestType'] == 'Create':
             logger.debug('Processing Create')
@@ -59,8 +57,6 @@ def associate_rule_to_the_vpc(event, context):
     # TODO: Handle more than 100 exports (see `NextToken`)
     client = boto3.client('cloudformation', **access_token)
     response = client.list_exports(**request)
-
-    print(f'list_exports: {response}')
 
     vpc_id = None
     for export in response['Exports']:

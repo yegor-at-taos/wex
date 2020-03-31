@@ -1,14 +1,21 @@
 #!/bin/bash
 set -o errexit -o pipefail -o nounset -o noglob
 
+if [[ $(uname -s) = "Linux" ]]; then
+    remove_on_exit_file=$(mktemp -u --suffix='.text')
+else
+    remove_on_exit_file=$(mktemp -u) # decoration is optional
+fi
+
 remove_on_exit() {
-    file=$(mktemp -u "$@")
+    if [[ $(uname -s) = "Linux" ]]; then
+        file=$(mktemp -u "$@")
+    else
+        file=$(mktemp -u) # decoration is optional
+    fi
     echo "$file" >> "$remove_on_exit_file"
     echo "$file"
 }
-
-remove_on_exit_file=$(mktemp --suffix=".text")
-echo "$remove_on_exit_file" > "$remove_on_exit_file"
 
 cleanup() {
     trap - EXIT
@@ -70,7 +77,8 @@ account_name() {
 }
 
 short_region() {
-    sed -e 's/\(.\)\w*-/\1/g' <<< "$1"
+    # shellcheck disable=SC2001
+    sed -e 's/\(.\)[^-]*-/\1/g' <<< "$1"
 }
 
 if [[ $# = 2 ]]; then  # profile and region provided
