@@ -4,7 +4,10 @@ import logging
 import urllib3
 
 az_count = 2
+
 cross_account_role = 'WexRamCloudFormationCrossAccountRole'
+outbount_endpoint_id_export = 'Route53-Outbound-Endpoint-Id'
+inbount_endpoint_id_export = 'Route53-Inbound-Endpoint-Id'
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)

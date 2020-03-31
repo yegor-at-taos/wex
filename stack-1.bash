@@ -6,8 +6,6 @@ root="$account_name-cfn-l-utils"
 stack_name="$root-$short_region-stk"
 bucket="$root-$short_region-bkt"
 
-json_source='json/lambda-utilities-objects.json'
-
 json=$(remove_on_exit --suffix='.json')
 
 if [[ $(aws --profile "wex-$profile" --region "$region" s3api list-buckets \
@@ -24,7 +22,16 @@ if [[ $(aws --profile "wex-$profile" --region "$region" s3api list-buckets \
     fi
 fi
 
-cp "$json_source" "$json"
+cat > "$json" <<EOF
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "WEX Inc., AWS Lambda tools (Functions, etc.)",
+  "Resources": {
+  },
+  "Outputs": {
+  }
+}
+EOF
 
 # shellcheck disable=SC2045
 for script in $(ls python); do  # note that 'noglob' is ON
@@ -88,6 +95,18 @@ EOF
                     "WexCloudFormationLambdaUtilitiesRole:Arn"
                 },
                 "Tags": $(jq .Mappings.Wex.Tags "$json_template")
+            },
+            "DependsOn": [
+                "${function}Logs"
+            ]
+        },
+        "${function}Logs": {
+            "Type" : "AWS::Logs::LogGroup",
+            "Properties" : {
+                "LogGroupName": {
+                    "Fn::Join": [ "-", [ { "Ref": "AWS::StackName" }, "$function" ] ]
+                },
+                "RetentionInDays" : 7
             }
         }
     }

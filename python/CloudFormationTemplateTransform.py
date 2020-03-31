@@ -49,8 +49,9 @@ def retrieve_endpoint_ips():
     # 1. handle multi page output correctly
     # 2. clean error handling
     for export in cfm.list_exports()['Exports']:
-        if export['Name'] == 'Route53-Inbound-Endpoint-Id':
+        if export['Name'] == utilities.inbount_endpoint_id_export:
             resolver_id = export['Value']
+            logger.debug(f'Retrieved resolver_id: {resolver_id}')
             break
 
     if resolver_id is None:
@@ -73,6 +74,8 @@ def retrieve_endpoint_ips():
     if not value:
         raise RuntimeError("Can't retrieve endpoint IP addresses")
 
+    logger.debug(f'Retrieved endpoint IPs: {value}')
+
     return value
 
 
@@ -82,13 +85,35 @@ def create_template(event, context):
     '''
     region, shared = event['region'], list()
 
+    logger.debug(f'Received region from the event: {region}')
+
     wex = event['fragment']['Mappings'].pop('Wex')
 
+    logger.debug(f'Received Wex config the event: {wex}')
+
     kind = event['templateParameterValues']['Instantiate']
+
+    logger.debug(f'Processing {kind} template')
+
+    if kind == 'Hosted':
+        target_endpoint_ips = retrieve_endpoint_ips()
+    elif kind == 'OnPrem':
+        target_endpoint_ips = [
+                {
+                    'Ip': target_ip,
+                    'Port': 53,
+                    }
+                for target_ip
+                in wex['Infoblox']['OnPremResolverIps'][region]
+                ]
+    else:
+        raise RuntimeError(f'Transform type [{kind}] is invalid')
 
     resources = event['fragment']['Resources']
 
     for zone in wex['Infoblox'][f'{kind}Zones']:
+        logger.debug(f'Processing zone: {zone}')
+
         zone_name = re.sub('_$', '', re.sub('\\.', '_', zone.strip()))
 
         rule_id = utilities.mk_id(
@@ -99,6 +124,10 @@ def create_template(event, context):
                     ]
                 )
 
+        logger.debug(f'For zone {zone} rule_id is {rule_id}')
+
+        shared.append(rule_id)  # always share generated rules
+
         resources[rule_id] = {
                 'Type': 'AWS::Route53Resolver::ResolverRule',
                 'Properties': {
@@ -107,8 +136,9 @@ def create_template(event, context):
                     'DomainName': zone,
                     'ResolverEndpointId': {
                         'Fn::ImportValue':
-                        'Route53-Outbound-Endpoint-Id',
+                        utilities.outbount_endpoint_id_export
                         },
+                    'TargetIps': target_endpoint_ips,
                     'Tags': deepcopy(wex['Tags']) + [
                         {
                             'Key': 'Name',
@@ -118,44 +148,34 @@ def create_template(event, context):
                     },
                 }
 
-        # Update the rule; set outbound either to preconfigured IP (OnPrem)
-        # or to the incoming endpoint (Hosted)
-        if kind == 'Hosted':
-            resources[rule_id]['Properties']['TargetIps'] = \
-                    retrieve_endpoint_ips()
-        elif kind == 'OnPrem':
-            resources[rule_id]['Properties']['TargetIps'] = [
-                    {
-                        'Ip': target_ip,
-                        'Port': 53,
+        # This is a 'local' association. It applies to onprem zone only to
+        # coreservices VPC returned by the '...-vpc-stk' as '...-Vpc-Id'
+        if kind == 'OnPrem':
+            rule_assoc_id = utilities.mk_id(
+                    [
+                        f'ra{kind}ZoneAssoc',
+                        zone,
+                        region,
+                        ]
+                    )
+
+            logger.debug(f'For zone: {zone} rule_assoc_id is {rule_assoc_id}')
+
+            resources[rule_assoc_id] = {
+                    'Type': 'AWS::Route53Resolver::ResolverRuleAssociation',
+                    'Properties': {
+                        'ResolverRuleId': utilities.get_attr(rule_id,
+                                                             'ResolverRuleId'),
+                        'VPCId': utilities.import_value(event, wex, 'Vpc-Id'),
                         }
-                    for target_ip
-                    in wex['Infoblox']['OnPremResolverIps'][region]
-                    ]
-        else:
-            raise RuntimeError(f'Transform type [{kind}] is invalid')
-
-        rule_assoc_id = utilities.mk_id(
-                [
-                    f'ra{kind}ZoneAssoc',
-                    zone,
-                    region,
-                    ]
-                )
-        resources[rule_assoc_id] = {
-                'Type': 'AWS::Route53Resolver::ResolverRuleAssociation',
-                'Properties': {
-                    'ResolverRuleId': utilities.get_attr(rule_id,
-                                                         'ResolverRuleId'),
-                    'VPCId': utilities.import_value(event, wex, 'Vpc-Id'),
                     }
-                }
-
-        shared.append(rule_id)
 
     # Share created ResolverRule(s) to all principals (except self)
     principals = set(wex['Infoblox']['Accounts']) \
         - set([event['accountId']])
+
+    logger.debug(f'Sharing zone_id(s): {shared}')
+    logger.debug(f'Sharing to AWS accounts: {principals}')
 
     if shared:  # don't create 'empty' shares if nothing to share
         for principal in list(principals):
@@ -168,6 +188,8 @@ def create_template(event, context):
                         principal,
                         ]
                     )
+
+            logger.debug(f'Sharing to principal {principal} id: {share_id}')
 
             resources[share_id] = {
                     'Type': 'AWS::RAM::ResourceShare',
@@ -197,6 +219,8 @@ def create_template(event, context):
                         ]
                     )
 
+            logger.debug(f'Auto-accept id for {principal}: {auto_accept_id}')
+
             resources[auto_accept_id] = {
                     'Type': 'AWS::CloudFormation::CustomResource',
                     'Properties': {
@@ -205,7 +229,7 @@ def create_template(event, context):
                                 'CloudFormationAutoAcceptFunction:Arn'
                             },
                         'ResourceShareArn':
-                        utilities.get_attr(share_id, 'Arn'),
+                            utilities.get_attr(share_id, 'Arn'),
                         'Principal': principal,
                         'RoleARN': utilities.cross_account_role,
                         },
@@ -224,22 +248,25 @@ def create_template(event, context):
                             ]
                         )
 
-            resources[auto_associate_id] = {
-                    'Type': 'AWS::CloudFormation::CustomResource',
-                    'Properties': {
-                        'ServiceToken': {
-                            'Fn::ImportValue':
-                                'CloudFormationAutoAssociateFunction:Arn'
+                logger.debug(f'Auto-association id for {principal}/{rule_id}:'
+                             f'{auto_associate_id}')
+
+                resources[auto_associate_id] = {
+                        'Type': 'AWS::CloudFormation::CustomResource',
+                        'Properties': {
+                            'ServiceToken': {
+                                'Fn::ImportValue':
+                                    'CloudFormationAutoAssociateFunction:Arn'
+                                },
+                            'Principal': principal,
+                            'RuleId': utilities.get_attr(rule_id,
+                                                         'ResolverRuleId'),
+                            'RoleARN': utilities.cross_account_role,
                             },
-                        'Principal': principal,
-                        'RuleId': utilities.get_attr(rule_id,
-                                                     'ResolverRuleId'),
-                        'RoleARN': utilities.cross_account_role,
-                        },
-                    'DependsOn': [
-                        auto_accept_id  # fire after share is accepted
-                        ],
-                    }
+                        'DependsOn': [
+                            auto_accept_id  # fire after share is accepted
+                            ],
+                        }
 
     return {
             'requestId': event['requestId'],
