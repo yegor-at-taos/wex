@@ -111,10 +111,10 @@ if [[ $account_name = "$profile" ]]; then
     account_name="aws-$account_name"
 fi
 
-json_template=$(remove_on_exit --suffix='.json')
-
 if [[ -f 'mock/infra-mock.json' ]]; then
-     jq . 'mock/infra-mock.json' > "$json_template"
+    # shellcheck disable=SC2034
+    json_template='mock/infra-mock.json'
 else
-    ./csv-audit.py --generate > "$json_template"
+    # shellcheck disable=SC2034
+    json_template='json/cloudformation-template.json'
 fi

@@ -4,12 +4,13 @@
 
 kind=OnPrem
 
-json_template=$(remove_on_exit --suffix='.json')
+json_final_template=$(remove_on_exit --suffix='.json')
 
 if [[ -f 'mock/infra-mock.json' ]]; then
-     jq . 'mock/infra-mock.json' > "$json_template"
+     jq . 'mock/infra-mock.json' > "$json_final_template"
 else
-    ./csv-audit.py --generate "$kind" > "$json_template"
+    # add actual infra data to the template
+    ./csv-audit.py --generate "$kind" > "$json_final_template"
 fi
 
 root="$account_name-cfn-r53-$(tr '[:upper:]' '[:lower:]' <<< $kind)"
@@ -17,7 +18,7 @@ stack_name="$root-$short_region-stk"
 
 json=$(remove_on_exit --suffix='.json')
 jq ".Description = \"WEX Inc., AWS Route 53 Resolver $kind rules and shares\"" \
-    "$json_template" > "$json"
+    "$json_final_template" > "$json"
 
 aws --profile "wex-$profile" --region "$region" \
     cloudformation "$(create_or_update "$stack_name")-stack" \
