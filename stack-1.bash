@@ -172,4 +172,5 @@ done
 
 aws --profile "wex-$profile" --region "$region" \
     cloudformation "$command-stack" \
+    --tags "$(jq .Mappings.Wex.Tags "$json_template")" \
     --stack-name "$stack_name" --template-body "file://$json"

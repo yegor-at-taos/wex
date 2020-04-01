@@ -16,4 +16,5 @@ aws --profile "wex-$profile" --region "$region" \
     cloudformation "$(create_or_update "$stack_name")-stack" \
     --stack-name "$stack_name" --template-body "file://$json" \
     --parameters "ParameterKey=Instantiate,ParameterValue=Hosted" \
+    --tags "$(jq .Mappings.Wex.Tags "$json_template")" \
     --capabilities CAPABILITY_AUTO_EXPAND

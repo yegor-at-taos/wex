@@ -21,4 +21,5 @@ jq ".Resources.$json_address.Properties.RoleName = $json_phys_name |
 aws --profile "wex-$profile" --region "$region" \
     cloudformation "$(create_or_update "$stack")-stack" \
     --stack-name "$stack" --template-body "file://$json" \
+    --tags "$(jq .Mappings.Wex.Tags "$json_template")" \
     --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM
