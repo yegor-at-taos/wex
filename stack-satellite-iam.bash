@@ -2,7 +2,7 @@
 
 . shell-utils.bash
 
-root="$account_name-cloudformation-satellite-permissions"
+root="$account_name-cfn-satellite-permissions"
 stack="$root-$short_region-stk"
 
 json=$(remove_on_exit --suffix='.json')

@@ -51,20 +51,26 @@ def generate_access_token(event, context):
 
 def associate_rule_to_the_vpc(event, context):
     access_token = generate_access_token(event, context)
+
+    client = boto3.client('cloudformation', **access_token)
     request = {
             }
 
-    # TODO: Handle more than 100 exports (see `NextToken`)
-    client = boto3.client('cloudformation', **access_token)
-    response = client.list_exports(**request)
+    while True:
+        response = client.list_exports(**request)
 
-    vpc_id = None
-    for export in response['Exports']:
-        # TODO: Generate real export name, like:
-        #   `coreservices-stage-ue1-vpc-stk-Vpc-Id`
-        if export['Name'].endswith('-vpc-stk-Vpc-Id'):
-            vpc_id = export['Value']
+        vpc_id = None
+        for export in response['Exports']:
+            # TODO: Generate real export name, like:
+            #   `coreservices-stage-ue1-vpc-stk-Vpc-Id`
+            if export['Name'].endswith('-vpc-stk-Vpc-Id'):
+                vpc_id = export['Value']
+                break
+
+        if vpc_id or 'NextToken' not in response:
             break
+        else:
+            request['NextToken'] = response['NextToken']
 
     if not vpc_id:
         raise RuntimeError(f'Remote export for Vpc-Id not found')

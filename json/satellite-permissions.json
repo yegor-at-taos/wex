@@ -13,15 +13,9 @@
               "Effect": "Allow",
               "Principal": {
                 "AWS": [
-                  "672442290193",
                   "544308222195",
                   "189106039250"
                 ]
-              },
-              "Condition": {
-                "StringEquals": {
-                  "iam:AWSServiceName": "lambda.amazonaws.com"
-                }
               },
               "Action": [
                 "sts:AssumeRole"
