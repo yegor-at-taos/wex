@@ -30,6 +30,9 @@
         }
       ],
       "Infoblox": {
+        "LambdaMasterRole": "WexCloudFormationLambdaUtilitiesRole",
+        "LambdaSatelliteRole": "WexRamCloudFormationCrossAccountRole",
+        "LambdaUtilsVersion": "1.0.0",
         "Regions": {
           "default": {
             "DNIVpcs": [
@@ -50,7 +53,8 @@
                   "PrivateSubnet2-Id": "@subnet-028f92c3bf460e69b"
                 }
               }
-            }
+            },
+            "Description": "Specific region gets simple (not deep) merged to 'default'"
           },
           "us-east-1": {
             "parent-stack-name": "coreservices-prod-ue1-vpc-stk"
@@ -83,10 +87,5 @@
       ],
       "Description": "Instantiate for Hosted or OnPrem zones"
     }
-  },
-  "Resources": {},
-  "Outputs": {},
-  "Transform": [
-    "CloudFormationTemplateTransformMacro"
-  ]
+  }
 }

@@ -103,7 +103,6 @@ else
 fi
 
 short_region=$(short_region $region)
-# shellcheck disable=SC2034
 upper_region=$(tr '[:lower:]' '[:upper:]' <<< "$short_region")
 
 account_name=$(account_name "$profile")
@@ -119,3 +118,16 @@ else
     # shellcheck disable=SC2034
     json_template='json/cloudformation-template.json'
 fi
+
+# Extract Role names from the template
+role_master=$(jq '.Mappings.Wex.Infoblox.LambdaMasterRole' \
+    $json_template | sed -e 's/^"//;s/"$//')
+
+role_satellite=$(jq '.Mappings.Wex.Infoblox.LambdaSatelliteRole' \
+    $json_template | sed -e 's/^"//;s/"$//')
+
+lambda_version=$(jq '.Mappings.Wex.Infoblox.LambdaUtilsVersion' \
+    $json_template | sed -e 's/^"//;s/"$//')
+
+# shellcheck disable=SC2034
+readonly short_region upper_region role_master role_satellite lambda_version

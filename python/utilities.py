@@ -20,21 +20,17 @@ def mk_id(args):
     return args[0] + digest.hexdigest()[-17:]
 
 
-def import_value(event, wex_data, resource):
-    region, account_id = event['region'], event['accountId']
+def import_value(event, wex, resource):
+    account_id = event['accountId']
 
-    parent_stack_name = wex_data['Regions'][region]['parent-stack-name']
+    # NOTE: This is where to replace merge with deepmerge if needed
+    data = wex['Infoblox']['Regions']['default']
+    data.update(wex['Infoblox']['Regions'][event['region']])
 
-    for overrides in [
-            overrides['Overrides']
-            for overrides
-            in [wex_data, wex_data['Regions'][event['region']]]
-            if 'Overrides' in overrides
-            ]:
-        if account_id not in overrides:
-            continue
+    parent_stack_name = data['parent-stack-name']
 
-        overrides = overrides[account_id]
+    if 'Overrides' in data and account_id in data['Overrides']:
+        overrides = data['Overrides'][account_id]
 
         if 'parent-stack-name' in overrides:
             parent_stack_name = overrides['parent-stack-name']
@@ -59,6 +55,21 @@ def get_attr(resource_name, attribute_name):
             attribute_name,
         ]
     }
+
+
+def prefix_stack_name(value):
+    return {
+            'Fn::Join':
+            [
+                '-',
+                [
+                    {
+                        'Ref': 'AWS::StackName'
+                        },
+                    value,
+                    ]
+                ]
+            }
 
 
 def send_response(status, event, context, data):

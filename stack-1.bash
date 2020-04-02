@@ -2,37 +2,23 @@
 
 . shell-utils.bash
 
-root="$account_name-cfn-l-utils"
-stack_name="$root-$short_region-stk"
-bucket="$root-$short_region-bkt"
+stack_name="$account_name-$short_region-cfn-lambda-utilities-stk"
+bucket="wex-account-default-scripts-$region"
 
 json=$(remove_on_exit --suffix='.json')
 
-if [[ $(aws --profile "wex-$profile" --region "$region" s3api list-buckets \
-    | jq "[.Buckets[] | select(.Name == \"$bucket\")] | length") -eq 0 ]]; then
-    # this is workaround for the well-known bug in aws-cli
-    if [[ $region = 'us-east-1' ]]; then
-        aws --profile "wex-$profile" --region "$region" s3api create-bucket \
-            --acl authenticated-read --bucket "$bucket"
-    else
-        aws --profile "wex-$profile" --region "$region" s3api create-bucket \
-            --create-bucket-configuration \
-            "{\"LocationConstraint\": \"$region\"}" \
-            --acl authenticated-read --bucket "$bucket"
-    fi
-fi
-
 cat > "$json" <<EOF
 {
-  "AWSTemplateFormatVersion": "2010-09-09",
-  "Description": "WEX Inc., AWS Lambda tools (Functions, etc.)",
-  "Resources": {
-  },
-  "Outputs": {
-  }
+    "AWSTemplateFormatVersion": "2010-09-09",
+    "Description": "WEX Inc., AWS Lambda tools (Functions, etc.)",
+    "Resources": {
+    },
+    "Outputs": {
+    }
 }
 EOF
 
+# NOTE: Construct ARN for the IAM Role
 # shellcheck disable=SC2045
 for script in $(ls python); do  # note that 'noglob' is ON
     [[ ! $script =~ \.py$ || $script = 'utilities.py' ]] && continue
@@ -46,11 +32,11 @@ for script in $(ls python); do  # note that 'noglob' is ON
     zip -9jq "$zipfile" "python/$script" python/utilities.py
 
     aws --profile "wex-$profile" --region "$region" \
-        s3 cp "$zipfile" "s3://$bucket/$function.zip"
+        s3 cp "$zipfile" "s3://$bucket/$function-$lambda_version.zip"
 
     aws --profile "wex-$profile" --region "$region" \
         s3api put-object-tagging \
-        --bucket "$bucket" --key "$function.zip" \
+        --bucket "$bucket" --key "$function-$lambda_version.zip" \
         --tagging "{ \"TagSet\": $(jq .Mappings.Wex.Tags "$json_template") }"
 
     fragment=$(remove_on_exit --suffix=.json)
@@ -72,37 +58,21 @@ for script in $(ls python); do  # note that 'noglob' is ON
                 },
                 "Principal": "cloudformation.amazonaws.com"
             }
-        }
-    }
-}
-EOF
-    jq -n 'reduce inputs as $i ({}; . * $i)' "$json" "$fragment" > "$combined"
-    mv "$combined" "$json"
-
-    # Add Function object
-    cat > "$fragment" <<EOF
-{
-    "Resources": {
+        },
         "$function": {
             "Type": "AWS::Lambda::Function",
             "Properties": {
                 "Code": {
                     "S3Bucket": "$bucket",
-                    "S3Key": "$function.zip"
+                    "S3Key": "$function-$lambda_version.zip"
                 },
                 "FunctionName": "$function",
                 "Handler": "$function.handler",
                 "Runtime": "python3.7",
                 "Timeout": "5",
-                "Role":  {
-                    "Fn::ImportValue":
-                    "WexCloudFormationLambdaUtilitiesRole:Arn"
-                },
+                "Role": "arn:aws:iam::$profile:role/WexCloudFormationLambdaUtilitiesRole",
                 "Tags": $(jq .Mappings.Wex.Tags "$json_template")
-            },
-            "DependsOn": [
-                "${function}Logs"
-            ]
+            }
         },
         "${function}Logs": {
             "Type" : "AWS::Logs::LogGroup",
@@ -145,7 +115,7 @@ EOF
 {
     "Outputs": {
         "${function}": {
-            "Description": "Auto-generated: $function",
+            "Description": "CFN: $function",
             "Value": {
                 "Fn::GetAtt": [
                     "${function}",
@@ -153,9 +123,8 @@ EOF
                 ]
             },
             "Export": {
-                "Name": {
-                    "Fn::Join": [ ":", [ "$function", "Arn" ] ]
-                }
+                "Name":
+                "$stack_name-$(tr '[:upper:]' '[:lower:]' <<< "$function")-arn"
             }
         }
     }

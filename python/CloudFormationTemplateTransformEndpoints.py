@@ -22,19 +22,11 @@ def create_template(event, context):
 
     wex = event['fragment']['Mappings'].pop('Wex')
 
-    # allow append to existing 'Resources' section
-    if 'Resources' not in event['fragment']:
-        event['fragment']['Resources'] = dict()
+    resources = dict()
+    event['fragment']['Resources'] = resources
 
-    resources = event['fragment']['Resources']
-    outputs = event['fragment']['Outputs']
-
-    if region not in wex['Regions']:
-        # return error if created in unsupported region
-        return {
-                'requestId': event['requestId'],
-                'status': 'FAILURE',
-                }
+    outputs = dict()
+    event['fragment']['Outputs'] = outputs
 
     # In Security Group
     sg_in_id = utilities.mk_id(
@@ -103,7 +95,8 @@ def create_template(event, context):
                     ],
                 },
             'Export': {
-                'Name': f'Route53-Inbound-Endpoint-Id',
+                'Name':
+                utilities.prefix_stack_name(f'route53-inbound-endpoint-id')
                 },
             }
 
@@ -155,8 +148,9 @@ def create_template(event, context):
                     ],
                 },
             'Export': {
-                'Name': f'Route53-Outbound-Endpoint-Id',
-                }
+                'Name':
+                utilities.prefix_stack_name(f'route53-outbound-endpoint-id')
+                },
             }
 
     return {

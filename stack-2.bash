@@ -2,8 +2,7 @@
 
 . shell-utils.bash
 
-root="$account_name-cfn-endpoints"
-stack_name="$root-$short_region-stk"
+stack_name="$account_name-$short_region-cfn-endpoints-stk"
 
 json=$(remove_on_exit --suffix='.json')
 jq ".Transform = [\"CloudFormationTemplateTransformEndpointsMacro\"]

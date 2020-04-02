@@ -2,12 +2,9 @@
 
 . shell-utils.bash
 
-### This is what's added to IAM, not an internal CFN Id
-role_name="WexRamCloudFormationCrossAccountRole"
-
 if [[ $(aws --profile "wex-$profile" --region "$region" \
     iam list-roles | jq ".Roles
-        | map(select(.RoleName == \"$role_name\")) | length") -ne 0 ]]; then
+        | map(select(.RoleName == \"$role_satellite\")) | length") -ne 0 ]]; then
     echo "IAM Role already exists (this is not an error, you can go on)"
     exit 0
 fi
@@ -24,7 +21,7 @@ json_address=$(jq '.Resources | keys
 jq ".Resources.$json_address.Properties.Tags |= . +
     $(jq .Mappings.Wex.Tags "$json_template")
     | .Resources.$json_address.Properties.RoleName =
-        \"${role_name}\"" "$json_source" > "$json"
+        \"${role_satellite}\"" "$json_source" > "$json"
 
 aws --profile "wex-$profile" --region "$region" \
     cloudformation "$(create_or_update "$stack")-stack" \
