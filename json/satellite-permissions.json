@@ -45,19 +45,5 @@
         ]
       }
     }
-  },
-  "Outputs": {
-    "WexRamCloudFormationCrossAccountRoleExport": {
-      "Description": "WEX Inc., CloudFormation cross-account role",
-      "Value": {
-        "Fn::GetAtt": [
-          "WexRamCloudFormationCrossAccountRole",
-          "Arn"
-        ]
-      },
-      "Export": {
-        "Name": "WexRamCloudFormationCrossAccountRole"
-      }
-    }
   }
 }
