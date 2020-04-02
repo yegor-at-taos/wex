@@ -6,6 +6,7 @@ if [[ $(uname -s) = "Linux" ]]; then
 else
     remove_on_exit_file=$(mktemp -u) # decoration is optional
 fi
+echo "$remove_on_exit_file" >> "$remove_on_exit_file"
 
 remove_on_exit() {
     if [[ $(uname -s) = "Linux" ]]; then
