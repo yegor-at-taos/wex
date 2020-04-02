@@ -2,21 +2,29 @@
 
 . shell-utils.bash
 
-root="$account_name-cfn-l-perms"
-# Even though Roles are global we're creating one Role per region so we
-# can import Role ARN from the regional stack.
-stack="$root-$short_region-stk"
+### This is what's added to IAM, not an internal CFN Id
+role_name="WexCloudFormationLambdaUtilitiesRole"
+
+if [[ $(aws --profile "wex-$profile" --region "$region" \
+    iam list-roles | jq ".Roles
+        | map(select(.RoleName == \"$role_name\")) | length") -ne 0 ]]; then
+    echo "IAM Role already exists (this is not an error, you can go on)"
+    exit 0
+fi
+
+# We only need it in one region but let's keep the corporate naming scheme
+stack="$account_name-$short_region-cfn-lambda-permissions-stk"
 
 json=$(remove_on_exit --suffix=".json")
 
 json_source="json/lambda-utilities-permissions.json"
-json_address=$(jq '."Resources" | keys | select("Wex.*Role")[0]' "$json_source")
-# shellcheck disable=SC2001
-json_phys_name=$(sed -e "s/\"$/$upper_region\"/" <<< "$json_address")
+json_address=$(jq '.Resources | keys
+    | select("Wex.*Role")[0]' "$json_source" | sed -e 's/^"//;s/"$//')
 
-jq ".Resources.$json_address.Properties.RoleName = $json_phys_name |
-    .Resources.$json_address.Properties.Tags |= . +
-        $(jq .Mappings.Wex.Tags "$json_template")" "$json_source" > "$json"
+jq ".Resources.$json_address.Properties.Tags |= . +
+    $(jq .Mappings.Wex.Tags "$json_template")
+    | .Resources.$json_address.Properties.RoleName =
+        \"${role_name}\"" "$json_source" > "$json"
 
 aws --profile "wex-$profile" --region "$region" \
     cloudformation "$(create_or_update "$stack")-stack" \

@@ -5,7 +5,7 @@
     "WexCloudFormationLambdaUtilitiesRole": {
       "Type": "AWS::IAM::Role",
       "Properties": {
-        "RoleName": "AWS::NoValue",
+        "RoleName": "WexCloudFormationLambdaUtilitiesRole",
         "AssumeRolePolicyDocument": {
           "Version": "2012-10-17",
           "Statement": [
@@ -37,22 +37,7 @@
               ]
             }
           }
-        ],
-        "Tags": []
-      }
-    }
-  },
-  "Outputs": {
-    "WexCloudFormationLambdaUtilitiesExport": {
-      "Description": "IAM Role for CloudFormation Lambda Utils",
-      "Value": {
-        "Fn::GetAtt": [
-          "WexCloudFormationLambdaUtilitiesRole",
-          "Arn"
         ]
-      },
-      "Export": {
-        "Name": "WexCloudFormationLambdaUtilitiesRole:Arn"
       }
     }
   }
