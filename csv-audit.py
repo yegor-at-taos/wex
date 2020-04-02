@@ -66,11 +66,12 @@ class WexAnalyzer:
         with open('json/cloudformation-template.json') as f:
             tmpl = json.load(f)
 
-        infoblox = tmpl['Mappings']['Wex']['Infoblox']
-
+        infoblox = tmpl['Mappings']['Wex']['Infoblox']['Regions']['default']
         infoblox.update({
             'Accounts': set(),
-            'HostedZones': set(),
+            'Hosted': set(),
+            'OnPrem': unbound.zones(),
+
             })
 
         for account in csv_data.items():
@@ -91,19 +92,21 @@ class WexAnalyzer:
                                 ['ue1', 'ec1', 'uw2', 'ae1', 'ae2', 'ew1']:
                             hosted_zone = hosted_zone[-3:]
 
-                infoblox['HostedZones'].add('.'.join(hosted_zone) + '.')
+                infoblox['Hosted'].add('.'.join(hosted_zone) + '.')
 
-        for key in ['Accounts', 'HostedZones']:
-            infoblox[key] = sorted(list(infoblox[key]))
-
-        tmpl['Mappings']['Wex']['Infoblox']['OnPremZones'] = \
-            sorted(list(unbound.zones()))
+        for key in ['Hosted', 'OnPrem', 'Accounts']:
+            infoblox[key] = list(infoblox[key])
 
         if self.args.generate == 'Hosted':
-            del infoblox['OnPremZones']
-            del infoblox['OnPremResolverIps']
+            clean = ['OnPrem', 'OnPremResolverIps']
         elif self.args.generate == 'OnPrem':
-            del infoblox['HostedZones']
+            clean = ['Hosted']
+
+        infoblox = tmpl['Mappings']['Wex']['Infoblox']['Regions']
+        for region in infoblox:
+            for key in clean:
+                if key in infoblox[region]:
+                    del infoblox[region][key]
 
         print(json.dumps(tmpl, indent=2))
 

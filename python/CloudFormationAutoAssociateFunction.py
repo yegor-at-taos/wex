@@ -55,11 +55,11 @@ def associate_rule_to_the_vpc(event, context):
     client = boto3.client('cloudformation', **access_token)
     request = {
             }
+    vpc_id = None
 
     while True:
         response = client.list_exports(**request)
 
-        vpc_id = None
         for export in response['Exports']:
             # TODO: Generate real export name, like:
             #   `coreservices-stage-ue1-vpc-stk-Vpc-Id`

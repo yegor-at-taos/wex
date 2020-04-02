@@ -6,8 +6,9 @@ import urllib3
 az_count = 2
 
 cross_account_role = 'WexRamCloudFormationCrossAccountRole'
-outbount_endpoint_id_export = 'Route53-Outbound-Endpoint-Id'
-inbount_endpoint_id_export = 'Route53-Inbound-Endpoint-Id'
+
+inbound_endpoint_suffix = '-cfn-endpoints-stk-route53-inbound-endpoint-id'
+outbound_endpoint_suffix = '-cfn-endpoints-stk-route53-outbound-endpoint-id'
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -20,20 +21,20 @@ def mk_id(args):
     return args[0] + digest.hexdigest()[-17:]
 
 
-def import_value(event, wex, resource):
+def import_value(event, data, stack, resource):
+    '''
+    Generates Fn::ImportValue to import resource from the stack
+    or hardcode the value if template has @.. inline
+    '''
     account_id = event['accountId']
 
-    # NOTE: This is where to replace merge with deepmerge if needed
-    data = wex['Infoblox']['Regions']['default']
-    data.update(wex['Infoblox']['Regions'][event['region']])
-
-    parent_stack_name = data['parent-stack-name']
+    stack_name = data[f'{stack}-stack-name']
 
     if 'Overrides' in data and account_id in data['Overrides']:
         overrides = data['Overrides'][account_id]
 
-        if 'parent-stack-name' in overrides:
-            parent_stack_name = overrides['parent-stack-name']
+        if f'{stack}-stack-name' in overrides:
+            stack_name = overrides[f'{stack}-stack-name']
 
         if 'Resources' in overrides:
             overrides = overrides['Resources']
@@ -41,11 +42,12 @@ def import_value(event, wex, resource):
         if resource in overrides:
             resource = overrides[resource]
 
-    value = resource[1:] if resource.startswith('@') else {
-            'Fn::ImportValue': f'{parent_stack_name}-{resource}'
-            }
+    if resource.startswith('@'):
+        return resource[1:]  # hardcode the value
 
-    return value
+    return {
+            'Fn::ImportValue': f'{stack_name}-{resource}'
+            }
 
 
 def get_attr(resource_name, attribute_name):

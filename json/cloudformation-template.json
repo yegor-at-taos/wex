@@ -47,6 +47,7 @@
             "Overrides": {
               "544308222195": {
                 "parent-stack-name": "Custodian-VPC",
+                "endpoints-stack-name": "custodian-prod-ue1-cfn-endpoints-stk",
                 "Resources": {
                   "Vpc-Id": "VpcId",
                   "PrivateSubnet1-Id": "@subnet-0a860dd075984960b",
@@ -57,7 +58,8 @@
             "Description": "Specific region gets simple (not deep) merged to 'default'"
           },
           "us-east-1": {
-            "parent-stack-name": "coreservices-prod-ue1-vpc-stk"
+            "parent-stack-name": "coreservices-prod-ue1-vpc-stk",
+            "endpoints-stack-name": "coreservices-prod-ue1-cfn-endpoints-stk"
           },
           "us-west-2": {
             "parent-stack-name": "coreservices-prod-uw2-vpc-stk"

@@ -2,10 +2,10 @@
 
 . shell-utils.bash
 
-kind=Hosted
+declare -r kind='Hosted'
 
-root="$account_name-cfn-r53-$(tr '[:upper:]' '[:lower:]' <<< $kind)"
-stack_name="$root-$short_region-stk"
+stack_name="$account_name-$short_region-cfn-r53-$(tr '[:upper:]' '[:lower:]' \
+    <<< $kind)-stk"
 
 json=$(remove_on_exit --suffix='.json')
 ./csv-audit.py --generate "$kind" | jq ".Description =

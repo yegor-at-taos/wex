@@ -25,12 +25,12 @@ def handler(event, context):
                 }
 
 
-def retrieve_endpoint_ips():
+def retrieve_inbound_ips():
     if 'AWS_UNITTEST_INBOUND_IPS' in os.environ:
         # We're running unit test, no AWS infrastructure is present
         return json.loads(os.environ['AWS_UNITTEST_INBOUND_IPS'])
 
-    # Use export `Route53-Inbound-Endpoint-Id` and `Route53Resolver`
+    # Use CloudFormation export and `Route53Resolver`
     # b/c retrieving endpoint IP addresses is not supported; this is
     # done during template processing. Keep `Fn::ImportValue` in the
     # processed template to let CloudFormation form the correct
@@ -38,17 +38,22 @@ def retrieve_endpoint_ips():
     # When/if API is updated you can remove this function and just
     # import the IP addresses with Fn::ImportValue.
     cfm = boto3.client('cloudformation')
-
+    request = {
+            }
     resolver_id = None
 
-    # TODO:
-    # 1. handle multi page output correctly
-    # 2. clean error handling
-    for export in cfm.list_exports()['Exports']:
-        if export['Name'] == utilities.inbount_endpoint_id_export:
-            resolver_id = export['Value']
-            logger.debug(f'Retrieved resolver_id: {resolver_id}')
+    while True:
+        response = cfm.list_exports(**request)
+
+        for export in response['Exports']:
+            if export['Name'].endswith(utilities.inbound_endpoint_suffix):
+                resolver_id = export['Value']
+                break
+
+        if resolver_id or 'NextToken' not in response:
             break
+        else:
+            request['NextToken'] = response['NextToken']
 
     if resolver_id is None:
         raise RuntimeError("Can't retrieve resolver_id")
@@ -56,7 +61,6 @@ def retrieve_endpoint_ips():
     value = list()
 
     r53 = boto3.client('route53resolver')
-
     for ip in r53.list_resolver_endpoint_ip_addresses(
             ResolverEndpointId=resolver_id
             )['IpAddresses']:
@@ -81,18 +85,15 @@ def create_template(event, context):
     '''
     region, shared = event['region'], list()
 
-    logger.debug(f'Received region from the event: {region}')
-
     wex = event['fragment']['Mappings'].pop('Wex')
 
-    logger.debug(f'Received Wex config the event: {wex}')
+    data = deepcopy(wex['Infoblox']['Regions']['default'])
+    data.update(wex['Infoblox']['Regions'][region])
 
     kind = event['templateParameterValues']['Instantiate']
 
-    logger.debug(f'Processing {kind} template')
-
     if kind == 'Hosted':
-        target_endpoint_ips = retrieve_endpoint_ips()
+        target_endpoint_ips = retrieve_inbound_ips()
     elif kind == 'OnPrem':
         target_endpoint_ips = [
                 {
@@ -100,16 +101,15 @@ def create_template(event, context):
                     'Port': 53,
                     }
                 for target_ip
-                in wex['Infoblox']['OnPremResolverIps'][region]
+                in data['OnPremResolverIps'][region]
                 ]
     else:
-        raise RuntimeError(f'Transform type [{kind}] is invalid')
+        raise RuntimeError(f'Transform type {kind} is invalid')
 
-    resources = event['fragment']['Resources']
+    resources = dict()
+    event['fragment']['Resources'] = resources
 
-    for zone in wex['Infoblox'][f'{kind}Zones']:
-        logger.debug(f'Processing zone: {zone}')
-
+    for zone in data[kind]:
         zone_name = re.sub('_$', '', re.sub('\\.', '_', zone.strip()))
 
         rule_id = utilities.mk_id(
@@ -167,8 +167,7 @@ def create_template(event, context):
                     }
 
     # Share created ResolverRule(s) to all principals (except self)
-    principals = set(wex['Infoblox']['Accounts']) \
-        - set([event['accountId']])
+    principals = set(data['Accounts']) - set([event['accountId']])
 
     logger.debug(f'Sharing zone_id(s): {shared}')
     logger.debug(f'Sharing to AWS accounts: {principals}')
