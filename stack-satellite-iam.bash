@@ -13,8 +13,7 @@ if [[ $(aws --profile "wex-$profile" --region "$region" \
 fi
 
 # We only need it in one region but let's keep the corporate naming scheme
-root="$account_name-cfn-satellite-permissions"
-stack="$root-$short_region-stk"
+stack="$account_name-$short_region-cfn-satellite-permissions-stk"
 
 json=$(remove_on_exit --suffix='.json')
 
