@@ -45,9 +45,13 @@ for script in $(ls python); do  # note that 'noglob' is ON
 
     zip -9jq "$zipfile" "python/$script" python/utilities.py
 
-    # the container could be named anything; see S3Key in Resources
     aws --profile "wex-$profile" --region "$region" \
         s3 cp "$zipfile" "s3://$bucket/$function.zip"
+
+    aws --profile "wex-$profile" --region "$region" \
+        s3api put-object-tagging \
+        --bucket "$bucket" --key "$function.zip" \
+        --tagging "{ \"TagSet\": $(jq .Mappings.Wex.Tags "$json_template") }"
 
     fragment=$(remove_on_exit --suffix=.json)
     combined=$(remove_on_exit --suffix=.json)
