@@ -2,7 +2,7 @@
 
 . shell-utils.bash
 
-### This is what's exported, not an internal Id
+### This is what's added to IAM, not an internal CFN Id
 role_name="WexRamCloudFormationCrossAccountRole"
 
 if [[ $(aws --profile "wex-$profile" --region "$region" \
@@ -25,9 +25,7 @@ json_address=$(jq '.Resources | keys
 jq ".Resources.$json_address.Properties.Tags |= . +
     $(jq .Mappings.Wex.Tags "$json_template")
     | .Resources.$json_address.Properties.RoleName =
-        \"${role_name}\"
-    | .Outputs.${json_address}Export.Export.Name =
-        \"$role_name\"" "$json_source" > "$json"
+        \"${role_name}\"" "$json_source" > "$json"
 
 aws --profile "wex-$profile" --region "$region" \
     cloudformation "$(create_or_update "$stack")-stack" \
