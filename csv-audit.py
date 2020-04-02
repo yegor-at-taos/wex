@@ -70,7 +70,7 @@ class WexAnalyzer:
 
         infoblox.update({
             'Accounts': set(),
-            'Hosted': set(),
+            'HostedZones': set(),
             })
 
         for account in csv_data.items():
@@ -91,18 +91,19 @@ class WexAnalyzer:
                                 ['ue1', 'ec1', 'uw2', 'ae1', 'ae2', 'ew1']:
                             hosted_zone = hosted_zone[-3:]
 
-                infoblox['Hosted'].add('.'.join(hosted_zone) + '.')
+                infoblox['HostedZones'].add('.'.join(hosted_zone) + '.')
 
-        for key in ['Accounts', 'Hosted']:
+        for key in ['Accounts', 'HostedZones']:
             infoblox[key] = sorted(list(infoblox[key]))
 
-        tmpl['Mappings']['Wex']['Infoblox']['OnPrem'] = \
+        tmpl['Mappings']['Wex']['Infoblox']['OnPremZones'] = \
             sorted(list(unbound.zones()))
 
         if self.args.generate == 'Hosted':
-            del infoblox['OnPrem']
+            del infoblox['OnPremZones']
+            del infoblox['OnPremResolverIps']
         elif self.args.generate == 'OnPrem':
-            del infoblox['Hosted']
+            del infoblox['HostedZones']
 
         print(json.dumps(tmpl, indent=2))
 
