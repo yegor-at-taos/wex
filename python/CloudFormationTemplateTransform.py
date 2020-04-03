@@ -5,6 +5,7 @@ import json
 import logging
 import os
 import re
+import traceback
 import utilities
 
 
@@ -21,11 +22,16 @@ def handler(event, context):
                 'requestId': event['requestId'],
                 'status': 'BIGBADABOOM',  # anything but SUCCESS is a failure
                 'fragment': event['fragment'],
-                'errorMessage': f'{e}',
+                'errorMessage': f'{e}: {traceback.format_exc()}',
                 }
 
 
-def retrieve_inbound_ips(data):
+def retrieve_inbound_ips(event, wex):
+    export_name = utilities.import_value(event, wex, 'endpoint_inbound')
+    export_name = export_name['Fn::ImportValue']
+
+    logger.info(f'Using endpoint: {export_name}')
+
     if 'AWS_UNITTEST_INBOUND_IPS' in os.environ:
         # We're running unit test, no AWS infrastructure is present
         return json.loads(os.environ['AWS_UNITTEST_INBOUND_IPS'])
@@ -46,8 +52,8 @@ def retrieve_inbound_ips(data):
         response = cfm.list_exports(**request)
 
         for export in response['Exports']:
-            if export['Name'] == data['endpoints-stack-name'] \
-                    + '-' + utilities.endpoint_inbound_suffix:
+            logger.info(f'Checking: {export}')
+            if export['Name'] == export_name:
                 resolver_id = export['Value']
                 break
 
@@ -63,8 +69,7 @@ def retrieve_inbound_ips(data):
 
     r53 = boto3.client('route53resolver')
     for ip in r53.list_resolver_endpoint_ip_addresses(
-            ResolverEndpointId=resolver_id
-            )['IpAddresses']:
+            ResolverEndpointId=resolver_id)['IpAddresses']:
         value.append(
                 {
                     'Ip': ip['Ip'],
@@ -94,7 +99,7 @@ def create_template(event, context):
     kind = event['templateParameterValues']['Instantiate']
 
     if kind == 'Hosted':
-        target_endpoint_ips = retrieve_inbound_ips(data)
+        target_endpoint_ips = retrieve_inbound_ips(event, wex)
     elif kind == 'OnPrem':
         target_endpoint_ips = [
                 {
@@ -102,7 +107,7 @@ def create_template(event, context):
                     'Port': 53,
                     }
                 for target_ip
-                in data['OnPremResolverIps'][region]
+                in data['OnPremResolverIps']
                 ]
     else:
         raise RuntimeError(f'Transform type {kind} is invalid')
@@ -132,7 +137,7 @@ def create_template(event, context):
                     'ResolverEndpointId':
                         utilities.import_value(
                             event,
-                            data,
+                            wex,
                             'endpoint_outbound'
                             ),
                     'TargetIps': target_endpoint_ips,
@@ -164,7 +169,7 @@ def create_template(event, context):
                         'VPCId':
                             utilities.import_value(
                                 event,
-                                data,
+                                wex,
                                 'vpc_id'
                                 ),
                         }
@@ -207,9 +212,6 @@ def create_template(event, context):
                     },
                 }
 
-        print(f'{resources[share_id]}')
-        return
-
         # Create one auto-accept object per principal
         auto_accept_id = utilities.mk_id(
                 [
@@ -225,10 +227,10 @@ def create_template(event, context):
                     'ServiceToken':
                         utilities.import_value(
                             event,
-                            data,
+                            wex,
                             'auto_accept_function'
                             ),
-                    'RoleARN': utilities.cross_account_role,
+                    'RoleARN': wex['Infoblox']['LambdaSatelliteRole'],
                     'Principal': principal,
                     'ResourceShareArn':
                         utilities.get_attr(share_id, 'Arn'),
@@ -257,10 +259,11 @@ def create_template(event, context):
                         'ServiceToken':
                             utilities.import_value(
                                 event,
-                                data,
+                                wex,
                                 'auto_associate_function'
                                 ),
-                        'RoleARN': utilities.cross_account_role,
+                        'VpcDni': data['VpcDni'],
+                        'RoleARN': wex['Infoblox']['LambdaSatelliteRole'],
                         'Principal': principal,
                         'RuleId': utilities.get_attr(rule_id,
                                                      'ResolverRuleId'),

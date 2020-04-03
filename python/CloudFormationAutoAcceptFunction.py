@@ -1,33 +1,34 @@
 #!/usr/bin/python3
 import boto3
 import logging
+import traceback
 
 import utilities
 
 logger = logging.getLogger()
-logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.INFO)
 
 
 def handler(event, context):
     try:
         if event['RequestType'] == 'Create':
-            logger.debug('Processing Create')
+            logger.info('Processing Create')
 
             accept_resource_share_invitation(event, context)
 
         elif event['RequestType'] == 'Delete':
-            logger.debug('Processing Delete; NOOP')
+            logger.info('Processing Delete; NOOP')
 
         else:
-            logger.debug(f'Processing other: {event["RequestType"]}; NOOP')
+            logger.info(f'Processing other: {event["RequestType"]}; NOOP')
 
         utilities.send_response('SUCCESS', event, context, dict())
 
     except Exception as e:
-        logger.error(f'An error occured: {e}; sending FAILURE')
+        logger.error(f'{e}: {traceback.format_exc()}')
         utilities.send_response('FAILURE', event, context, dict())
 
-    logger.debug('Done')
+    logger.info('Done')
 
 
 def accept_resource_share_invitation(event, context):
@@ -68,7 +69,7 @@ def accept_resource_share_invitation(event, context):
             f':role/{event["ResourceProperties"]["RoleARN"]}',
             'RoleSessionName': 'cross_account_lambda'
             }
-    logger.debug(f'Using remote role ARN: {role_arn}')
+    logger.info(f'Using remote role ARN: {role_arn}')
 
     client = boto3.client('sts')
     peer = client.assume_role(**role_arn)['Credentials']
@@ -81,7 +82,7 @@ def accept_resource_share_invitation(event, context):
     request = {
             'resourceShareInvitationArn': invitation,
             }
-    logger.debug(f'Using: {access_token}, {request}')
+    logger.info(f'Using: {access_token}, {request}')
 
     client = boto3.client('ram', **access_token)
     response = client.accept_resource_share_invitation(**request)

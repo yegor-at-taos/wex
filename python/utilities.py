@@ -32,9 +32,6 @@ exported = {
             'cloudformationautoassociatefunction-arn'),
 }
 
-# `cross_account_role` can't be imported cross-region; it's hardcoded
-cross_account_role = 'WexRamCloudFormationCrossAccountRole'
-
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
