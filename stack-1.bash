@@ -127,6 +127,12 @@ EOF
                 "$stack_name-$(tr '[:upper:]' '[:lower:]' <<< "$function")-arn"
             }
         }
+    },
+    "Parameters": {
+        "Version": {
+          "Type": "String",
+          "Description": "AWS Lambda Utilities Version"
+        }
     }
 }
 EOF
@@ -146,4 +152,5 @@ done
 aws --profile "wex-$profile" --region "$region" \
     cloudformation "$command-stack" \
     --tags "$(jq .Mappings.Wex.Tags "$json_template")" \
-    --stack-name "$stack_name" --template-body "file://$json"
+    --stack-name "$stack_name" --template-body "file://$json" \
+    --parameters "ParameterKey=Version,ParameterValue=$lambda_version"

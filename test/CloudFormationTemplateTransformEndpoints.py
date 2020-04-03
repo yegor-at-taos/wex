@@ -3,10 +3,11 @@ import json
 import sys
 
 sys.path.insert(1, '.')
+sys.path.insert(1, './python')
 
 from python import CloudFormationTemplateTransformEndpoints
 
-with open('mock/infra-mock.json') as f:
+with open('mock.json') as f:
     event = {
             "accountId": "544308222195",
             "fragment": json.load(f),

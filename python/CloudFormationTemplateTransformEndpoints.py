@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-from copy import deepcopy
+import traceback
 
 import utilities
 
@@ -9,11 +9,12 @@ def handler(event, context):
         return create_template(event, context)
 
     except Exception as e:
+
         return {
                 'requestId': event['requestId'],
                 'status': 'BIGBADABOOM',  # anything but SUCCESS in a failure
                 'fragment': event['fragment'],
-                'errorMessage': f'{e}',
+                'errorMessage': f'{e}: {traceback.format_exc()}',
                 }
 
 
@@ -39,7 +40,9 @@ def create_template(event, context):
             'Type': 'AWS::EC2::SecurityGroup',
             'Properties': {
                 'GroupDescription': 'Incoming DNS over IPv4 + ICMP',
-                'VpcId': utilities.import_value(event, wex, 'Vpc-Id'),
+                'VpcId': utilities.import_value(event,
+                                                wex,
+                                                'vpc_id'),
                 'SecurityGroupIngress': [
                     {
                         'CidrIp': '0.0.0.0/0',
@@ -54,7 +57,7 @@ def create_template(event, context):
                         'ToPort': -1,
                         },
                     ],
-                'Tags': deepcopy(wex['Tags']),
+                'Tags': wex['Tags'],
                 },
             }
 
@@ -74,7 +77,7 @@ def create_template(event, context):
                         'SubnetId':
                         utilities.import_value(event,
                                                wex,
-                                               f'PrivateSubnet{i+1}-Id')
+                                               f'privatesubnet{i+1}_id')
                         }
                     for i
                     in range(utilities.az_count)
@@ -82,7 +85,7 @@ def create_template(event, context):
                 'SecurityGroupIds': [
                     utilities.get_attr(sg_in_id, 'GroupId'),
                     ],
-                'Tags': deepcopy(wex['Tags']),
+                'Tags': wex['Tags'],
                 },
             }
 
@@ -111,8 +114,10 @@ def create_template(event, context):
             'Type': 'AWS::EC2::SecurityGroup',
             'Properties': {
                 'GroupDescription': 'Outgoing DNS over IPv4',
-                'VpcId': utilities.import_value(event, wex, 'Vpc-Id'),
-                'Tags': deepcopy(wex['Tags']),
+                'VpcId': utilities.import_value(event,
+                                                wex,
+                                                'vpc_id'),
+                'Tags': wex['Tags'],
                 },
             }
 
@@ -127,7 +132,7 @@ def create_template(event, context):
                         'SubnetId':
                         utilities.import_value(event,
                                                wex,
-                                               f'PrivateSubnet{i+1}-Id')
+                                               f'privatesubnet{i+1}_id')
                         }
                     for i
                     in range(utilities.az_count)
@@ -135,7 +140,7 @@ def create_template(event, context):
                 'SecurityGroupIds': [
                     utilities.get_attr(sg_out_id, 'GroupId'),
                     ],
-                'Tags': deepcopy(wex['Tags']),
+                'Tags': wex['Tags'],
                 },
             }
 

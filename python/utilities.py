@@ -1,14 +1,39 @@
+#!/usr/bin/env python3
+from copy import deepcopy
 import json
 import hashlib
 import logging
+import re
 import urllib3
 
 az_count = 2
 
-cross_account_role = 'WexRamCloudFormationCrossAccountRole'
+exported = {
+        'endpoint_inbound': (
+            'cfn-endpoints',
+            'route53-inbound-endpoint-id'),
+        'endpoint_outbound': (
+            'cfn-endpoints',
+            'route53-outbound-endpoint-id'),
+        'vpc_id': (
+            'vpc',
+            'Vpc-Id'),
+        'privatesubnet1_id': (
+            'vpc',
+            'PrivateSubnet1-Id'),
+        'privatesubnet2_id': (
+            'vpc',
+            'PrivateSubnet2-Id'),
+        'auto_accept_function': (
+            'cfn-lambda-utilities',
+            'cloudformationautoacceptfunction-arn'),
+        'auto_associate_function': (
+            'cfn-lambda-utilities',
+            'cloudformationautoassociatefunction-arn'),
+}
 
-inbound_endpoint_suffix = '-cfn-endpoints-stk-route53-inbound-endpoint-id'
-outbound_endpoint_suffix = '-cfn-endpoints-stk-route53-outbound-endpoint-id'
+# `cross_account_role` can't be imported cross-region; it's hardcoded
+cross_account_role = 'WexRamCloudFormationCrossAccountRole'
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -21,32 +46,31 @@ def mk_id(args):
     return args[0] + digest.hexdigest()[-17:]
 
 
-def import_value(event, data, stack, resource):
+def import_value(event, wex, resource):
     '''
     Generates Fn::ImportValue to import resource from the stack
     or hardcode the value if template has @.. inline
     '''
+    region = event['region']
+    short_region = re.sub('(.).*?-', '\\1', region)
+
     account_id = event['accountId']
+    account_name = 'account-name'
 
-    stack_name = data[f'{stack}-stack-name']
+    data = deepcopy(wex['Infoblox']['Regions']['default'])
+    data.update(wex['Infoblox']['Regions'][region])
 
-    if 'Overrides' in data and account_id in data['Overrides']:
-        overrides = data['Overrides'][account_id]
+    if account_id in data['Overrides'] \
+            and account_name in data['Overrides'][account_id]:
+        account_name = data['Overrides'][account_id][account_name]
+    else:
+        account_name = data[account_name]
 
-        if f'{stack}-stack-name' in overrides:
-            stack_name = overrides[f'{stack}-stack-name']
-
-        if 'Resources' in overrides:
-            overrides = overrides['Resources']
-
-        if resource in overrides:
-            resource = overrides[resource]
-
-    if resource.startswith('@'):
-        return resource[1:]  # hardcode the value
+    import_name = f'{account_name}-{short_region}' \
+        f'-{exported[resource][0]}-stk-{exported[resource][1]}'
 
     return {
-            'Fn::ImportValue': f'{stack_name}-{resource}'
+            'Fn::ImportValue': import_name
             }
 
 

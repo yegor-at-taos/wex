@@ -9,7 +9,7 @@ import utilities
 
 
 logger = logging.getLogger()
-logger.setLevel(logging.INFO)
+logger.setLevel(logging.DEBUG)
 
 
 def handler(event, context):
@@ -25,7 +25,7 @@ def handler(event, context):
                 }
 
 
-def retrieve_inbound_ips():
+def retrieve_inbound_ips(data):
     if 'AWS_UNITTEST_INBOUND_IPS' in os.environ:
         # We're running unit test, no AWS infrastructure is present
         return json.loads(os.environ['AWS_UNITTEST_INBOUND_IPS'])
@@ -46,7 +46,8 @@ def retrieve_inbound_ips():
         response = cfm.list_exports(**request)
 
         for export in response['Exports']:
-            if export['Name'].endswith(utilities.inbound_endpoint_suffix):
+            if export['Name'] == data['endpoints-stack-name'] \
+                    + '-' + utilities.endpoint_inbound_suffix:
                 resolver_id = export['Value']
                 break
 
@@ -93,7 +94,7 @@ def create_template(event, context):
     kind = event['templateParameterValues']['Instantiate']
 
     if kind == 'Hosted':
-        target_endpoint_ips = retrieve_inbound_ips()
+        target_endpoint_ips = retrieve_inbound_ips(data)
     elif kind == 'OnPrem':
         target_endpoint_ips = [
                 {
@@ -120,8 +121,6 @@ def create_template(event, context):
                     ]
                 )
 
-        logger.debug(f'For zone {zone} rule_id is {rule_id}')
-
         shared.append(rule_id)  # always share generated rules
 
         resources[rule_id] = {
@@ -130,12 +129,14 @@ def create_template(event, context):
                     'Name': zone_name,
                     'RuleType': 'FORWARD',
                     'DomainName': zone,
-                    'ResolverEndpointId': {
-                        'Fn::ImportValue':
-                        utilities.outbount_endpoint_id_export
-                        },
+                    'ResolverEndpointId':
+                        utilities.import_value(
+                            event,
+                            data,
+                            'endpoint_outbound'
+                            ),
                     'TargetIps': target_endpoint_ips,
-                    'Tags': deepcopy(wex['Tags']) + [
+                    'Tags': wex['Tags'] + [
                         {
                             'Key': 'Name',
                             'Value': zone_name,
@@ -144,7 +145,7 @@ def create_template(event, context):
                     },
                 }
 
-        # This is a 'local' association. It applies to onprem zone only to
+        # This is a 'local' association. It applies to onprem zone to
         # coreservices VPC returned by the '...-vpc-stk' as '...-Vpc-Id'
         if kind == 'OnPrem':
             rule_assoc_id = utilities.mk_id(
@@ -155,113 +156,119 @@ def create_template(event, context):
                         ]
                     )
 
-            logger.debug(f'For zone: {zone} rule_assoc_id is {rule_assoc_id}')
-
             resources[rule_assoc_id] = {
                     'Type': 'AWS::Route53Resolver::ResolverRuleAssociation',
                     'Properties': {
-                        'ResolverRuleId': utilities.get_attr(rule_id,
-                                                             'ResolverRuleId'),
-                        'VPCId': utilities.import_value(event, wex, 'Vpc-Id'),
+                        'ResolverRuleId':
+                            utilities.get_attr(rule_id, 'ResolverRuleId'),
+                        'VPCId':
+                            utilities.import_value(
+                                event,
+                                data,
+                                'vpc_id'
+                                ),
                         }
                     }
 
     # Share created ResolverRule(s) to all principals (except self)
     principals = set(data['Accounts']) - set([event['accountId']])
 
-    logger.debug(f'Sharing zone_id(s): {shared}')
-    logger.debug(f'Sharing to AWS accounts: {principals}')
+    if not shared:  # don't create 'empty' shares if nothing to share
+        principals.clear()
 
-    if shared:  # don't create 'empty' shares if nothing to share
-        for principal in list(principals):
+    for principal in list(principals):
+        # Create one share with all rules per principal
+        share_id = utilities.mk_id(
+                [
+                    f'rs{kind}ResourceShare',
+                    region,
+                    principal,
+                    ]
+                )
 
-            # Create one share with all rules per principal
-            share_id = utilities.mk_id(
-                    [
-                        f'rs{kind}ResourceShare',
-                        region,
-                        principal,
-                        ]
-                    )
+        logger.debug(f'Sharing to principal {principal} id: {share_id}')
 
-            logger.debug(f'Sharing to principal {principal} id: {share_id}')
-
-            resources[share_id] = {
-                    'Type': 'AWS::RAM::ResourceShare',
-                    'Properties': {
-                        'Name': f'Wex-{kind}-Zones-Share-{principal}',
-                        'ResourceArns': [
-                                utilities.get_attr(shared_id, 'Arn')
-                                for shared_id
-                                in shared
-                                ],
-                        'Principals': [principal],
-                        'Tags': deepcopy(wex['Tags']) + [
-                            {
-                                'Key': 'Name',
-                                'Value': f'Wex-{kind}-Zones-Share-{principal}',
-                                },
+        resources[share_id] = {
+                'Type': 'AWS::RAM::ResourceShare',
+                'Properties': {
+                    'Name': f'Wex-{kind}-Zones-Share-{principal}',
+                    'ResourceArns': [
+                            utilities.get_attr(shared_id, 'Arn')
+                            for shared_id
+                            in shared
                             ],
-                        },
-                    }
+                    'Principals': [principal],
+                    'Tags': wex['Tags'] + [
+                        {
+                            'Key': 'Name',
+                            'Value': f'Wex-{kind}-Zones-Share-{principal}',
+                            },
+                        ],
+                    },
+                }
 
-            # Create one auto-accept object per principal
-            auto_accept_id = utilities.mk_id(
+        print(f'{resources[share_id]}')
+        return
+
+        # Create one auto-accept object per principal
+        auto_accept_id = utilities.mk_id(
+                [
+                    f'cr{kind}AutoAccept',
+                    region,
+                    principal,
+                    ]
+                )
+
+        resources[auto_accept_id] = {
+                'Type': 'AWS::CloudFormation::CustomResource',
+                'Properties': {
+                    'ServiceToken':
+                        utilities.import_value(
+                            event,
+                            data,
+                            'auto_accept_function'
+                            ),
+                    'RoleARN': utilities.cross_account_role,
+                    'Principal': principal,
+                    'ResourceShareArn':
+                        utilities.get_attr(share_id, 'Arn'),
+                    },
+                }
+
+        # Create one auto-association object per rule
+        # NOTE: rule_id s the same across the accounts. However,
+        # AWS documentation does not formally guarantee this.
+        for rule_id in shared:
+            auto_associate_id = utilities.mk_id(
                     [
-                        f'cr{kind}AutoAccept',
+                        f'cr{kind}AutoAssociate',
                         region,
                         principal,
+                        rule_id,
                         ]
                     )
 
-            logger.debug(f'Auto-accept id for {principal}: {auto_accept_id}')
+            logger.debug(f'Auto-association id for {principal}/{rule_id}:'
+                         f'{auto_associate_id}')
 
-            resources[auto_accept_id] = {
+            resources[auto_associate_id] = {
                     'Type': 'AWS::CloudFormation::CustomResource',
                     'Properties': {
-                        'ServiceToken': {
-                            'Fn::ImportValue':
-                                'CloudFormationAutoAcceptFunction:Arn'
-                            },
-                        'ResourceShareArn':
-                            utilities.get_attr(share_id, 'Arn'),
-                        'Principal': principal,
+                        'ServiceToken':
+                            utilities.import_value(
+                                event,
+                                data,
+                                'auto_associate_function'
+                                ),
                         'RoleARN': utilities.cross_account_role,
+                        'Principal': principal,
+                        'RuleId': utilities.get_attr(rule_id,
+                                                     'ResolverRuleId'),
                         },
+                    'DependsOn': [
+                        auto_accept_id  # fire after share is accepted
+                        ],
                     }
-
-            # Create one auto-association object per rule
-            # NOTE: rule_id s the same across the accounts. However,
-            # AWS documentation does not formally guarantee this.
-            for rule_id in shared:
-                auto_associate_id = utilities.mk_id(
-                        [
-                            f'cr{kind}AutoAssociate',
-                            region,
-                            principal,
-                            rule_id,
-                            ]
-                        )
-
-                logger.debug(f'Auto-association id for {principal}/{rule_id}:'
-                             f'{auto_associate_id}')
-
-                resources[auto_associate_id] = {
-                        'Type': 'AWS::CloudFormation::CustomResource',
-                        'Properties': {
-                            'ServiceToken': {
-                                'Fn::ImportValue':
-                                    'CloudFormationAutoAssociateFunction:Arn'
-                                },
-                            'Principal': principal,
-                            'RuleId': utilities.get_attr(rule_id,
-                                                         'ResolverRuleId'),
-                            'RoleARN': utilities.cross_account_role,
-                            },
-                        'DependsOn': [
-                            auto_accept_id  # fire after share is accepted
-                            ],
-                        }
 
     return {
             'requestId': event['requestId'],

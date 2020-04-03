@@ -1,14 +1,9 @@
 #!/bin/bash
 set -o errexit -o pipefail -o nounset -o noglob
 
-if [[ $(uname -s) = "Linux" ]]; then
-    remove_on_exit_file=$(mktemp -u --suffix='.text')
-else
-    remove_on_exit_file=$(mktemp -u) # decoration is optional
-fi
-echo "$remove_on_exit_file" >> "$remove_on_exit_file"
-
 remove_on_exit() {
+    local file
+
     if [[ $(uname -s) = "Linux" ]]; then
         file=$(mktemp -u "$@")
     else
@@ -23,19 +18,18 @@ cleanup() {
     # shellcheck disable=SC2046
     rm -f $(cat "$remove_on_exit_file")
 }
-trap cleanup EXIT
 
 create_or_update() {
     # sleep until '..._IN_PROGRESS' status is gone
     while true; do
-        local temp
-
+        local temp count status
         temp=$(remove_on_exit --suffix=".json")
 
         aws --profile "wex-$profile" --region "$region" \
             cloudformation list-stacks > "$temp"
 
-        count=$(jq "[.StackSummaries[] | select(.StackName == \"$1\")]
+        count=$(jq "[.StackSummaries[]
+            | select(.StackName == \"$1\")]
             | length" "$temp")
 
         if [[ $count -eq 0 ]]; then
@@ -62,11 +56,12 @@ create_or_update() {
 }
 
 account_name() {
-    if [[ $1 = 'taos' ]]; then
-        echo 'coreservices-mock'
-    elif [[ $1 = 'taos-satellite' ]]; then
-        echo 'coreservices-mock-satellite'
+    if [[ $1 = '672442290193' ]]; then  # Taos test AWS account
+        echo 'mock-prod'
+    elif [[ $1 = '265468622424' ]]; then  # Yegor's test AWS account
+        echo 'mock-stage'
     else
+        local name
         name=$(jq ".[\"$1\"]" shell-utils.json)
         if [[ $name = 'null' ]]; then
             echo "Account not found: $1"  # no name in Okta
@@ -77,57 +72,56 @@ account_name() {
     fi
 }
 
-short_region() {
-    # shellcheck disable=SC2001
-    sed -e 's/\(.\)[^-]*-/\1/g' <<< "$1"
-}
-
-if [[ $# = 2 ]]; then  # profile and region provided
-    profile=$1
-    region=$2
-elif [[ $# = 1 && $1 = 'wex' ]]; then
-    profile='544308222195'
-    region='us-east-1'
-elif [[ $# = 1 && $1 = 'taos' ]]; then
-    profile=$1
-    region='us-east-1'
-elif [[ $# = 1 && $1 = 'taos-satellite' ]]; then
-    profile=$1
-    region='us-east-1'
+##### Execution starts here
+if [[ $(uname -s) = "Linux" ]]; then
+    readonly remove_on_exit_file=$(mktemp -u --suffix='.text')
 else
-    echo "*  Usage error."
-    echo "You should provide one of the following:"
-    echo "   * account and region (544308222195 us-east-1)"
-    echo "   * shortcut, ['wex'|'taos']"
-    exit 1
+    readonly remove_on_exit_file=$(mktemp -u) # decoration is optional
 fi
+echo "$remove_on_exit_file" >> "$remove_on_exit_file"
 
-short_region=$(short_region $region)
-upper_region=$(tr '[:lower:]' '[:upper:]' <<< "$short_region")
+trap cleanup EXIT
 
-account_name=$(account_name "$profile")
-if [[ $account_name = "$profile" ]]; then
-    echo "No human-readable name for ($profile) found, using 'aws-' prefix" 1>&2
-    account_name="aws-$account_name"
-fi
+while (( $# )); do
+    case "$1" in
+        -a|--aws-account)
+            readonly profile="$2"
+            shift 2
+            ;;
+        -r|--region)
+            readonly region="$2"
+            shift 2
+            ;;
+        -l|--lambda-version)
+            readonly lambda_version="$2"
+            shift 2
+            ;;
+        *)
+            echo "Usage: $0 -a|--aws-account account"
+            echo "          -r|--region region"
+            echo "          -l|--lambda-version version"
+            exit 1
+            ;;
+    esac
+done
 
-if [[ -f 'mock/infra-mock.json' ]]; then
-    # shellcheck disable=SC2034
-    json_template='mock/infra-mock.json'
-else
-    # shellcheck disable=SC2034
-    json_template='json/cloudformation-template.json'
-fi
-
-# Extract Role names from the template
-role_master=$(jq '.Mappings.Wex.Infoblox.LambdaMasterRole' \
+# shellcheck disable=SC2001
+readonly short_region=$(sed -e 's/\(.\)[^-]*-/\1/g' <<< "$region")
+readonly upper_region=$(tr '[:lower:]' '[:upper:]' <<< "$short_region")
+readonly account_name=$(account_name "$profile")
+readonly json_template='json/cloudformation-template.json'
+readonly role_master=$(jq '.Mappings.Wex.Infoblox.LambdaMasterRole' \
     $json_template | sed -e 's/^"//;s/"$//')
-
-role_satellite=$(jq '.Mappings.Wex.Infoblox.LambdaSatelliteRole' \
-    $json_template | sed -e 's/^"//;s/"$//')
-
-lambda_version=$(jq '.Mappings.Wex.Infoblox.LambdaUtilsVersion' \
+readonly role_satellite=$(jq '.Mappings.Wex.Infoblox.LambdaSatelliteRole' \
     $json_template | sed -e 's/^"//;s/"$//')
 
 # shellcheck disable=SC2034
-readonly short_region upper_region role_master role_satellite lambda_version
+readonly \
+    account_name \
+    role_master \
+    role_satellite \
+    lambda_version \
+    json_template \
+    short_region \
+    upper_region \
+    remove_on_exit_file

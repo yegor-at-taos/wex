@@ -32,49 +32,55 @@
       "Infoblox": {
         "LambdaMasterRole": "WexCloudFormationLambdaUtilitiesRole",
         "LambdaSatelliteRole": "WexRamCloudFormationCrossAccountRole",
-        "LambdaUtilsVersion": "1.0.0",
         "Regions": {
           "default": {
-            "DNIVpcs": [
-              "CoreServices"
+            "VpcDni": [
+              "vpc-03eeae9a1d25c79f3",
+              "vpc-03eeae9a1d25c3f97"
             ],
-            "OnPremResolverIps": [
-              "10.94.1.77",
-              "10.94.5.87",
-              "10.97.1.99",
-              "10.98.1.166"
-            ],
+            "account-name": "coreservices-prod",
             "Overrides": {
               "544308222195": {
-                "parent-stack-name": "Custodian-VPC",
-                "endpoints-stack-name": "custodian-prod-ue1-cfn-endpoints-stk",
-                "Resources": {
-                  "Vpc-Id": "VpcId",
-                  "PrivateSubnet1-Id": "@subnet-0a860dd075984960b",
-                  "PrivateSubnet2-Id": "@subnet-028f92c3bf460e69b"
-                }
+                "account-name": "custodian-prod"
               }
             },
             "Description": "Specific region gets simple (not deep) merged to 'default'"
           },
           "us-east-1": {
-            "parent-stack-name": "coreservices-prod-ue1-vpc-stk",
-            "endpoints-stack-name": "coreservices-prod-ue1-cfn-endpoints-stk"
+            "OnPremResolverIps": [
+              "10.94.1.77",
+              "10.232.4.1"
+            ]
           },
           "us-west-2": {
-            "parent-stack-name": "coreservices-prod-uw2-vpc-stk"
+            "OnPremResolverIps": [
+              "10.94.5.87",
+              "10.230.4.1"
+            ]
           },
           "eu-central-1": {
-            "parent-stack-name": "coreservices-prod-ec1-vpc-stk"
+            "OnPremResolverIps": [
+              "10.97.1.99",
+              "10.128.4.1"
+            ]
           },
           "eu-west-1": {
-            "parent-stack-name": "coreservices-prod-ew1-vpc-stk"
+            "OnPremResolverIps": [
+              "10.97.1.99",
+              "10.128.4.1"
+            ]
           },
           "ap-southeast-1": {
-            "parent-stack-name": "coreservices-prod-ue1-vpc-stk"
+            "OnPremResolverIps": [
+              "10.98.1.166",
+              "10.230.4.1"
+            ]
           },
           "ap-southeast-2": {
-            "parent-stack-name": "coreservices-prod-ue1-vpc-stk"
+            "OnPremResolverIps": [
+              "10.98.1.166",
+              "10.230.4.1"
+            ]
           }
         }
       }
@@ -89,5 +95,8 @@
       ],
       "Description": "Instantiate for Hosted or OnPrem zones"
     }
-  }
+  },
+  "Transform": [
+    "CloudFormationTemplateTransformMacro"
+  ]
 }
