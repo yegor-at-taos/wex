@@ -78,14 +78,10 @@ def associate_rule_to_the_vpc(event, context):
                     'ResolverRuleId': event['ResourceProperties']['RuleId'],
                     'VPCId': value,
                     }
-            try:
-                response = muninn.associate_resolver_rule(**request)
-                logger.info(f'Attempted: {value}'
-                            f' -> {event["ResourceProperties"]["RuleId"]}'
-                            f'; got: {response}')
-            except Exception as e:
-                logger.error(f'Failed to associate: {request}'
-                             f' - {e} {traceback.format_exc()}')
+            response = muninn.associate_resolver_rule(**request)
+            logger.info(f'Association: {value}'
+                        f' -> {event["ResourceProperties"]["RuleId"]}'
+                        f'; got: {response}')
 
         if 'NextToken' not in response_exports:
             break
