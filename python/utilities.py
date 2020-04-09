@@ -51,19 +51,10 @@ def import_value(event, wex, resource):
     region = event['region']
     short_region = re.sub('(.).*?-', '\\1', region)
 
-    account_id = event['accountId']
-    account_name = 'account-name'
-
     data = deepcopy(wex['Infoblox']['Regions']['default'])
     data.update(wex['Infoblox']['Regions'][region])
 
-    if account_id in data['Overrides'] \
-            and account_name in data['Overrides'][account_id]:
-        account_name = data['Overrides'][account_id][account_name]
-    else:
-        account_name = data[account_name]
-
-    import_name = f'{account_name}-{short_region}' \
+    import_name = f'{data["account-name"]}-{short_region}' \
         f'-{exported[resource][0]}-stk-{exported[resource][1]}'
 
     return {

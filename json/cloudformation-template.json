@@ -38,13 +38,7 @@
               "vpc-03eeae9a1d25c79f3",
               "vpc-03eeae9a1d25c3f97"
             ],
-            "account-name": "coreservices-prod",
-            "Overrides": {
-              "544308222195": {
-                "account-name": "custodian-prod"
-              }
-            },
-            "Description": "Specific region gets simple (not deep) merged to 'default'"
+            "account-name": "coreservices-prod"
           },
           "us-east-1": {
             "OnPremResolverIps": [

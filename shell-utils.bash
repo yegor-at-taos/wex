@@ -72,6 +72,21 @@ account_name() {
     fi
 }
 
+fn_join() {
+    # Fn::Join $2, $3, etc with $1 as a separator
+    local separator=$1
+    shift
+
+    local fn_join_text=""
+
+    local component
+    for component in "$@"; do
+        fn_join_text="$fn_join_text,\"$component\""
+    done
+
+    echo "{\"Fn::Join\":[\"$separator\",[${fn_join_text#,}]]}"
+}
+
 ##### Execution starts here
 if [[ $(uname -s) = "Linux" ]]; then
     readonly remove_on_exit_file=$(mktemp -u --suffix='.text')

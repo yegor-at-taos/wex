@@ -63,15 +63,31 @@ for script in $(ls python); do  # note that 'noglob' is ON
             "Type": "AWS::Lambda::Function",
             "Properties": {
                 "Code": {
-                    "S3Bucket": "$bucket",
-                    "S3Key": "$function-$lambda_version.zip"
+                    "S3Bucket": { "Ref": "S3BucketName" },
+                    "S3Key": ""
                 },
                 "FunctionName": "$function",
                 "Handler": "$function.handler",
                 "Runtime": "python3.7",
                 "Timeout": "5",
                 "Role": "arn:aws:iam::$profile:role/WexCloudFormationLambdaUtilitiesRole",
-                "Tags": $(jq .Mappings.Wex.Tags "$json_template")
+                "Role": {
+                  "Fn::Join": [ ":", [
+                    "arn", "aws", "iam", "",
+                    { "Ref": "AWS::AccountId" },
+                    {
+                      "Fn::Join": [ "/", [
+                          "role",
+                          {
+                            "Ref": $(jq .LambdaUtilitiesRole static_parameters.json)
+                          }
+                        ]
+                      ]
+                    }
+                  ]
+                }
+              },
+              "Tags": $(jq .Mappings.Wex.Tags "$json_template")
             }
         },
         "${function}Logs": {
@@ -123,15 +139,25 @@ EOF
                 ]
             },
             "Export": {
-                "Name":
-                "$stack_name-$(tr '[:upper:]' '[:lower:]' <<< "$function")-arn"
+                "Name": {
+                    "Fn::Join": [ "-", [
+                            { "Ref": "NamePrefix" },
+                            "$(tr '[:upper:]' '[:lower:]' <<< "$function")",
+                            "arn"
+                        ]
+                    ]
+                }
             }
         }
     },
     "Parameters": {
-        "Version": {
+        "LambdaVersion": {
           "Type": "String",
           "Description": "AWS Lambda Utilities Version"
+        },
+        "NamePrefix": {
+          "Type": "String",
+          "Description": "Stack prefix, eg. 'coreservices-prod-ue1'"
         }
     }
 }
@@ -153,4 +179,18 @@ aws --profile "wex-$profile" --region "$region" \
     cloudformation "$command-stack" \
     --tags "$(jq .Mappings.Wex.Tags "$json_template")" \
     --stack-name "$stack_name" --template-body "file://$json" \
-    --parameters "ParameterKey=Version,ParameterValue=$lambda_version"
+    --parameters "[
+        {
+            \"ParameterKey\": \"StackPrefix\",
+            \"ParameterValue\": \"$account_name-$short_region\"
+        },
+        {
+            \"ParameterKey\": \"S3BucketName\",
+            \"ParameterValue\": \"$bucket\"
+        },
+        {
+            \"ParameterKey\": \"LambdaVersion\",
+            \"ParameterValue\": \"$lambda_version\"
+        }
+    ]"
+

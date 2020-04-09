@@ -5,7 +5,9 @@
     "WexCloudFormationLambdaUtilitiesRole": {
       "Type": "AWS::IAM::Role",
       "Properties": {
-        "RoleName": "WexCloudFormationLambdaUtilitiesRole",
+        "RoleName": {
+          "Ref": "RoleName"
+        },
         "AssumeRolePolicyDocument": {
           "Version": "2012-10-17",
           "Statement": [
@@ -39,6 +41,12 @@
           }
         ]
       }
+    }
+  },
+  "Parameters": {
+    "RoleName": {
+      "Type": "String",
+      "Description": "Lambda Utilities IAM Role name"
     }
   }
 }
