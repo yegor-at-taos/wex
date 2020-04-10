@@ -66,11 +66,11 @@ class WexAnalyzer:
         with open('json/cloudformation-template.json') as f:
             tmpl = json.load(f)
 
-        infoblox = tmpl['Mappings']['Wex']['Infoblox']['Regions']['default']
+        infoblox = tmpl['Mappings']['Wex']
         infoblox.update({
             'Accounts': set(),
-            'Hosted': set(),
-            'OnPrem': unbound.zones(),
+            'AwsZones': set(),
+            'OnPremZones': unbound.zones(),
 
             })
 
@@ -92,21 +92,37 @@ class WexAnalyzer:
                                 ['ue1', 'ec1', 'uw2', 'ae1', 'ae2', 'ew1']:
                             hosted_zone = hosted_zone[-3:]
 
-                infoblox['Hosted'].add('.'.join(hosted_zone) + '.')
+                infoblox['AwsZones'].add('.'.join(hosted_zone) + '.')
 
-        for key in ['Hosted', 'OnPrem', 'Accounts']:
+        for key in ['Accounts', 'OnPremZones', 'AwsZones']:
             infoblox[key] = list(infoblox[key])
 
-        if self.args.generate == 'Hosted':
-            clean = ['OnPrem', 'OnPremResolverIps']
-        elif self.args.generate == 'OnPrem':
-            clean = ['Hosted']
+        # do the cleanup
+        regions = tmpl['Mappings']['Wex']['Infoblox']['Regions']
 
-        infoblox = tmpl['Mappings']['Wex']['Infoblox']['Regions']
-        for region in infoblox:
-            for key in clean:
-                if key in infoblox[region]:
-                    del infoblox[region][key]
+        if self.args.generate == 'AwsZones':
+            del infoblox['OnPremZones']
+            for k in set(regions.keys()):
+                if k not in [self.args.region, 'default']:
+                    del regions[k]
+                    continue
+
+                if 'OnPremResolverIps' in regions[k]:
+                    del regions[k]['OnPremResolverIps']
+
+                if not regions[k]:
+                    del regions[k]
+        elif self.args.generate == 'OnPremZones':
+            del infoblox['AwsZones']
+            for k in set(regions.keys()):
+                if k not in [self.args.region, 'default']:
+                    del regions[k]
+                    continue
+
+                if not regions[k]:
+                    del regions[k]
+        else:
+            raise NotImplementedError(f'Generate: {self.args.generate}')
 
         print(json.dumps(tmpl, indent=2))
 
@@ -119,8 +135,8 @@ class WexAnalyzer:
             csv_name.update(s_name)
 
         if self.args.generate:
-            if self.args.generate not in ['OnPrem', 'Hosted']:
-                raise ValueError(f'Can generate OnPrem|Hosted, got:'
+            if self.args.generate not in ['AwsZones', 'OnPremZones']:
+                raise ValueError(f'Can generate AwsZones|OnPremZones, got:'
                                  f'{self.args.generate}')
             self.generate(csv_data, csv_name)
         elif self.args.accounts:
@@ -192,7 +208,7 @@ parser.add_argument("-f", "--file", type=str,
 parser.add_argument("-l", "--logging", type=str,
                     help="logging level", default="WARN")
 parser.add_argument("-g", "--generate", type=str,
-                    help="Generate OnPrem|Hosted config from CSV",
+                    help="Generate OnPremZones|AwsZones config from CSV",
                     default=False)
 parser.add_argument("-a", "--accounts", action='store_true',
                     help="Generate config from CSV",
@@ -203,6 +219,9 @@ parser.add_argument("-u", "--unbound", type=str,
 parser.add_argument("-p", "--path", type=str,
                     help="Unbound configurations path",
                     default="infra/unbound")
+parser.add_argument("-r", "--region", type=str,
+                    help="AWS region name, eg. 'us-east-1'",
+                    default="us-east-1")
 args = parser.parse_args()
 
 WexAnalyzer(args).run()

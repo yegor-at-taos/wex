@@ -34,8 +34,11 @@
         "Regions": {
           "default": {
             "VpcDni": [
-              "vpc-03eeae9a1d25c79f3",
-              "vpc-03eeae9a1d25c3f97"
+              "vpc-f1fd038b",
+              "vpc-a3c862d8",
+              "vpc-09a19836bf9021589",
+              "vpc-06b996dce1435b84f",
+              "vpc-031ff4f77b6ebb344"
             ]
           },
           "us-east-1": {
@@ -90,10 +93,10 @@
     "Instantiate": {
       "Type": "String",
       "AllowedValues": [
-        "Hosted",
-        "OnPrem"
+        "AwsZones",
+        "OnPremZones"
       ],
-      "Description": "Instantiate for Hosted or OnPrem zones"
+      "Description": "Instantiate for AwsZones or OnPremZones"
     }
   }
 }

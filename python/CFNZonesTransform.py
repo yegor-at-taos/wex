@@ -1,9 +1,7 @@
 #!/usr/bin/env python3
 import boto3
 from copy import deepcopy
-import json
 import logging
-import os
 import re
 import traceback
 import utilities
@@ -22,65 +20,58 @@ def handler(event, context):
                 'requestId': event['requestId'],
                 'status': 'BIGBADABOOM',  # anything but SUCCESS is a failure
                 'fragment': event['fragment'],
-                'errorMessage': f'{e}: {traceback.format_exc()}',
+                'errorMessage': f'{e}: {event} {traceback.format_exc()}',
                 }
 
 
-def retrieve_inbound_ips(event, wex):
-    export_name = utilities.import_value(event, wex, 'endpoint_inbound')
-    export_name = export_name['Fn::ImportValue']
-
-    logger.info(f'Using endpoint: {export_name}')
-
-    if 'AWS_UNITTEST_INBOUND_IPS' in os.environ:
-        # We're running unit test, no AWS infrastructure is present
-        return json.loads(os.environ['AWS_UNITTEST_INBOUND_IPS'])
-
-    # Use CloudFormation export and `Route53Resolver`
-    # b/c retrieving endpoint IP addresses is not supported; this is
-    # done during template processing. Keep `Fn::ImportValue` in the
-    # processed template to let CloudFormation form the correct
-    # implicit dependency.
-    # When/if API is updated you can remove this function and just
-    # import the IP addresses with Fn::ImportValue.
+def retrieve_all_exports(event, wex):
     cfm = boto3.client('cloudformation')
     request = {
             }
-    resolver_id = None
+
+    value = dict()
 
     while True:
         response = cfm.list_exports(**request)
 
         for export in response['Exports']:
-            logger.info(f'Checking: {export}')
-            if export['Name'] == export_name:
-                resolver_id = export['Value']
-                break
+            value[export['Name']] = export['Value']
 
-        if resolver_id or 'NextToken' not in response:
-            break
-        else:
-            request['NextToken'] = response['NextToken']
+        if 'NextToken' not in response:
+            return value
 
-    if resolver_id is None:
-        raise RuntimeError("Can't retrieve resolver_id")
+        request['NextToken'] = response['NextToken']
 
-    value = list()
+
+def retrieve_cfn_export(event, wex, export):
+    # Generate template import statement, however use generated value to
+    # resolve endpoint addresses via route53resolver
+    export_name = utilities.import_value(event, wex, export)
+    export_name = export_name['Fn::ImportValue']
+
+    for k, v in retrieve_all_exports(event, wex).items():
+        if k == export_name:
+            return v
+
+    raise RuntimeError(f'{export_name} not found in CFN exports')
+
+
+def retrieve_inbound_ips(event, wex):
+    resolver_id = retrieve_cfn_export(event, wex, 'endpoint_inbound')
 
     r53 = boto3.client('route53resolver')
-    for ip in r53.list_resolver_endpoint_ip_addresses(
-            ResolverEndpointId=resolver_id)['IpAddresses']:
-        value.append(
-                {
-                    'Ip': ip['Ip'],
-                    'Port': '53',
-                    }
-                )
+    value = [
+            {
+                'Ip': ip['Ip'],
+                'Port': '53',
+                }
+            for ip
+            in r53.list_resolver_endpoint_ip_addresses(
+                ResolverEndpointId=resolver_id)['IpAddresses']
+        ]
 
     if not value:
         raise RuntimeError("Can't retrieve endpoint IP addresses")
-
-    logger.debug(f'Retrieved endpoint IPs: {value}')
 
     return value
 
@@ -93,14 +84,21 @@ def create_template(event, context):
 
     wex = event['fragment']['Mappings'].pop('Wex')
 
-    data = deepcopy(wex['Infoblox']['Regions']['default'])
-    data.update(wex['Infoblox']['Regions'][region])
+    # check if default settings are present in Infoblox
+    if 'default' in wex['Infoblox']['Regions']:
+        data = deepcopy(wex['Infoblox']['Regions']['default'])
+    else:
+        data = dict()
+
+    # Update if regional data block is present
+    if region in wex['Infoblox']['Regions']:
+        data.update(wex['Infoblox']['Regions'][region])
 
     kind = event['templateParameterValues']['Instantiate']
 
-    if kind == 'Hosted':
+    if kind == 'AwsZones':
         target_endpoint_ips = retrieve_inbound_ips(event, wex)
-    elif kind == 'OnPrem':
+    elif kind == 'OnPremZones':
         target_endpoint_ips = [
                 {
                     'Ip': target_ip,
@@ -115,7 +113,7 @@ def create_template(event, context):
     resources = dict()
     event['fragment']['Resources'] = resources
 
-    for zone in data[kind]:
+    for zone in wex[kind]:
         zone_name = re.sub('_$', '', re.sub('\\.', '_', zone.strip()))
 
         rule_id = utilities.mk_id(
@@ -150,33 +148,35 @@ def create_template(event, context):
                     },
                 }
 
-        # This is a 'local' association. It applies to onprem zone to
-        # coreservices VPC returned by the '...-vpc-stk' as '...-Vpc-Id'
-        if kind == 'OnPrem':
-            rule_assoc_id = utilities.mk_id(
-                    [
-                        f'ra{kind}ZoneAssoc',
-                        zone,
-                        region,
-                        ]
-                    )
+        # Associate to all locally exported VPCs (except the ones listed
+        # in the DNI section).
+        if kind == 'OnPremZones':
+            for k, v in retrieve_all_exports(event, wex).items():
+                if not k.endswith('-stk-Vpc-Id'):
+                    continue
+                if 'VpcDni' in data and v in data['VpcDni']:
+                    logger.info(f'{k} is in VpcDni')
+                    continue
+                rule_assoc_id = utilities.mk_id(
+                        [
+                            f'ra{kind}ZoneAssoc',
+                            zone,
+                            region,
+                            ]
+                        )
 
-            resources[rule_assoc_id] = {
-                    'Type': 'AWS::Route53Resolver::ResolverRuleAssociation',
-                    'Properties': {
-                        'ResolverRuleId':
-                            utilities.get_attr(rule_id, 'ResolverRuleId'),
-                        'VPCId':
-                            utilities.import_value(
-                                event,
-                                wex,
-                                'vpc_id'
-                                ),
+                resources[rule_assoc_id] = {
+                        'Type':
+                        'AWS::Route53Resolver::ResolverRuleAssociation',
+                        'Properties': {
+                            'ResolverRuleId':
+                                utilities.get_attr(rule_id, 'ResolverRuleId'),
+                            'VPCId': v,
+                            }
                         }
-                    }
 
     # Share created ResolverRule(s) to all principals (except self)
-    principals = set(data['Accounts']) - set([event['accountId']])
+    principals = set(wex['Accounts']) - set([event['accountId']])
 
     if not shared:  # don't create 'empty' shares if nothing to share
         principals.clear()
@@ -212,31 +212,6 @@ def create_template(event, context):
                     },
                 }
 
-        # Create one auto-accept object per principal
-        auto_accept_id = utilities.mk_id(
-                [
-                    f'cr{kind}AutoAccept',
-                    region,
-                    principal,
-                    ]
-                )
-
-        resources[auto_accept_id] = {
-                'Type': 'AWS::CloudFormation::CustomResource',
-                'Properties': {
-                    'ServiceToken':
-                        utilities.import_value(
-                            event,
-                            wex,
-                            'auto_accept_function'
-                            ),
-                    'RoleARN': wex['Infoblox']['LambdaSatelliteRole'],
-                    'Principal': principal,
-                    'ResourceShareArn':
-                        utilities.get_attr(share_id, 'Arn'),
-                    },
-                }
-
         # Create one auto-association object per rule
         # NOTE: rule_id s the same across the accounts. However,
         # AWS documentation does not formally guarantee this.
@@ -269,8 +244,9 @@ def create_template(event, context):
                                                      'ResolverRuleId'),
                         },
                     'DependsOn': [
-                        auto_accept_id  # fire after share is accepted
-                        ],
+                        share_id,
+                        rule_id
+                        ]
                     }
 
     return {

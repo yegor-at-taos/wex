@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-from copy import deepcopy
 import json
 import hashlib
 import logging
@@ -46,14 +45,9 @@ def import_value(event, wex, resource):
     Generates Fn::ImportValue to import resource from the stack
     or hardcode the value if template has @.. inline
     '''
-    region = event['region']
-
-    data = deepcopy(wex['Infoblox']['Regions']['default'])
-    data.update(wex['Infoblox']['Regions'][region])
-
     import_name = event['templateParameterValues']['Lob'] + \
         '-' + event['templateParameterValues']['Environment'] + \
-        '-' + re.sub('(.).*?-', '\\1', region) + \
+        '-' + re.sub('(.).*?-', '\\1', event['region']) + \
         '-' + '-stk-'.join(exported[resource])
 
     return {

@@ -27,10 +27,8 @@ def handler(event, context):
         utilities.send_response('SUCCESS', event, context, dict())
 
     except Exception as e:
-        logger.error(f'{e}: {traceback.format_exc()}')
+        logger.error(f'{e}: {event} {traceback.format_exc()}')
         utilities.send_response('FAILURE', event, context, dict())
-
-    logger.info('Done')
 
 
 def generate_access_token(event, context):
@@ -55,8 +53,6 @@ def generate_access_token(event, context):
 def associate_rule_to_the_vpc(event, context):
     access_token = generate_access_token(event, context)
     huginn = boto3.client('cloudformation', **access_token)
-
-    access_token = generate_access_token(event, context)
     muninn = boto3.client('route53resolver', **access_token)
 
     request_exports = {
@@ -78,10 +74,10 @@ def associate_rule_to_the_vpc(event, context):
                     'ResolverRuleId': event['ResourceProperties']['RuleId'],
                     'VPCId': value,
                     }
+            logger.info(f'Attempting association: {value}'
+                        f' -> {event["ResourceProperties"]["RuleId"]}')
             response = muninn.associate_resolver_rule(**request)
-            logger.info(f'Association: {value}'
-                        f' -> {event["ResourceProperties"]["RuleId"]}'
-                        f'; got: {response}')
+            logger.info(f'; got: {response}')
 
         if 'NextToken' not in response_exports:
             break
