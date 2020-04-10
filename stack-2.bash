@@ -5,7 +5,7 @@
 stack_name="$account_name-$short_region-cfn-endpoints-stk"
 
 json=$(remove_on_exit --suffix='.json')
-jq ".Transform = [\"CloudFormationTemplateTransformEndpointsMacro\"]
+jq ".Transform = [\"CFNEndpointsTransformMacro\"]
     | .Description = \"WEX Inc., AWS Route 53 Resolver Endpoints and SGs\"" \
     "$json_template" > "$json"
 
@@ -14,6 +14,19 @@ jq ".Transform = [\"CloudFormationTemplateTransformEndpointsMacro\"]
 aws --profile "wex-$profile" --region "$region" \
     cloudformation "$(create_or_update "$stack_name")-stack" \
     --stack-name "$stack_name" --template-body "file://$json" \
-    --parameters "ParameterKey=Instantiate,ParameterValue=Hosted" \
     --tags "$(jq .Mappings.Wex.Tags "$json_template")" \
-    --capabilities CAPABILITY_AUTO_EXPAND
+    --capabilities CAPABILITY_AUTO_EXPAND \
+    --parameters "[
+        {
+            \"ParameterKey\": \"Lob\",
+            \"ParameterValue\": \"$wex_lob\"
+        },
+        {
+            \"ParameterKey\": \"Environment\",
+            \"ParameterValue\": \"$wex_environment\"
+        },
+        {
+            \"ParameterKey\": \"Instantiate\",
+            \"ParameterValue\": \"Hosted\"
+        }
+    ]"

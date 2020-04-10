@@ -130,6 +130,9 @@ readonly role_master=$(jq '.Mappings.Wex.Infoblox.LambdaMasterRole' \
 readonly role_satellite=$(jq '.Mappings.Wex.Infoblox.LambdaSatelliteRole' \
     $json_template | sed -e 's/^"//;s/"$//')
 
+readonly wex_lob=${account_name%-?*}
+readonly wex_environment=${account_name#?*-}
+
 # shellcheck disable=SC2034
 readonly \
     account_name \

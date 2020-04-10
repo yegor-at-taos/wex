@@ -6,8 +6,6 @@ import logging
 import re
 import urllib3
 
-az_count = 2
-
 exported = {
         'endpoint_inbound': (
             'cfn-endpoints',
@@ -24,12 +22,12 @@ exported = {
         'privatesubnet2_id': (
             'vpc',
             'PrivateSubnet2-Id'),
-        'auto_accept_function': (
-            'cfn-lambda-utilities',
-            'cloudformationautoacceptfunction-arn'),
+        'privatesubnet3_id': (
+            'vpc',
+            'PrivateSubnet3-Id'),
         'auto_associate_function': (
             'cfn-lambda-utilities',
-            'cloudformationautoassociatefunction-arn'),
+            'cfnautoassociate-arn'),
 }
 
 logger = logging.getLogger()
@@ -49,13 +47,14 @@ def import_value(event, wex, resource):
     or hardcode the value if template has @.. inline
     '''
     region = event['region']
-    short_region = re.sub('(.).*?-', '\\1', region)
 
     data = deepcopy(wex['Infoblox']['Regions']['default'])
     data.update(wex['Infoblox']['Regions'][region])
 
-    import_name = f'{data["account-name"]}-{short_region}' \
-        f'-{exported[resource][0]}-stk-{exported[resource][1]}'
+    import_name = event['templateParameterValues']['Lob'] + \
+        '-' + event['templateParameterValues']['Environment'] + \
+        '-' + re.sub('(.).*?-', '\\1', region) + \
+        '-' + '-stk-'.join(exported[resource])
 
     return {
             'Fn::ImportValue': import_name

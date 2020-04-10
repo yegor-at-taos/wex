@@ -1,6 +1,5 @@
 {
   "AWSTemplateFormatVersion": "2010-09-09",
-  "Description": "AWS::NoValue",
   "Mappings": {
     "Wex": {
       "Tags": [
@@ -30,15 +29,14 @@
         }
       ],
       "Infoblox": {
-        "LambdaMasterRole": "WexCloudFormationLambdaUtilitiesRole",
-        "LambdaSatelliteRole": "WexRamCloudFormationCrossAccountRole",
+        "LambdaMasterRole": "WexCFNLambdaUtilitiesRole",
+        "LambdaSatelliteRole": "WexCFNCrossAccountRole",
         "Regions": {
           "default": {
             "VpcDni": [
               "vpc-03eeae9a1d25c79f3",
               "vpc-03eeae9a1d25c3f97"
-            ],
-            "account-name": "coreservices-prod"
+            ]
           },
           "us-east-1": {
             "OnPremResolverIps": [
@@ -81,6 +79,14 @@
     }
   },
   "Parameters": {
+    "Lob": {
+      "Type": "String",
+      "Description": "WEX Inc., Line of business; eg. 'coreservices'"
+    },
+    "Environment": {
+      "Type": "String",
+      "Description": "WEX Inc., environment; eg. 'prod'"
+    },
     "Instantiate": {
       "Type": "String",
       "AllowedValues": [
@@ -89,8 +95,5 @@
       ],
       "Description": "Instantiate for Hosted or OnPrem zones"
     }
-  },
-  "Transform": [
-    "CloudFormationTemplateTransformMacro"
-  ]
+  }
 }

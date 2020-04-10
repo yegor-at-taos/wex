@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+import boto3
+import re
 import traceback
 
 import utilities
@@ -12,16 +14,50 @@ def handler(event, context):
 
         return {
                 'requestId': event['requestId'],
-                'status': 'BIGBADABOOM',  # anything but SUCCESS in a failure
+                'status': 'BIGBADABOOM',  # anything but SUCCESS is a failure
                 'fragment': event['fragment'],
                 'errorMessage': f'{e}: {traceback.format_exc()}',
                 }
+
+
+def count_exported_subnets(event, context):
+    m = event['templateParameterValues']['Lob'] + \
+            '-' + event['templateParameterValues']['Environment'] + \
+            '-' + re.sub("(.).*?-", "\\1", event['region']) + \
+            '-vpc-stk-PrivateSubnet(\\d)-Id'
+
+    count = 0
+
+    cfn = boto3.client('cloudformation')
+
+    request_exports = {
+            }
+
+    while True:
+        response_exports = cfn.list_exports(**request_exports)
+
+        for export in response_exports['Exports']:
+            s = re.match(m, export['Name'])
+            if not s:
+                continue
+            subnet = int(s.group(1))
+            if subnet > count:
+                count = subnet
+
+        if 'NextToken' not in response_exports:
+            break
+        else:
+            request_exports['NextToken'] = response_exports['NextToken']
+
+    return count
 
 
 def create_template(event, context):
     region = event['region']
 
     wex = event['fragment']['Mappings'].pop('Wex')
+
+    az_count = count_exported_subnets(event, context)
 
     resources = dict()
     event['fragment']['Resources'] = resources
@@ -80,7 +116,7 @@ def create_template(event, context):
                                                f'privatesubnet{i+1}_id')
                         }
                     for i
-                    in range(utilities.az_count)
+                    in range(az_count)
                     ],
                 'SecurityGroupIds': [
                     utilities.get_attr(sg_in_id, 'GroupId'),
@@ -135,7 +171,7 @@ def create_template(event, context):
                                                f'privatesubnet{i+1}_id')
                         }
                     for i
-                    in range(utilities.az_count)
+                    in range(az_count)
                     ],
                 'SecurityGroupIds': [
                     utilities.get_attr(sg_out_id, 'GroupId'),
