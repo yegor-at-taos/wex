@@ -129,6 +129,7 @@ dmypy.json
 .pyre/
 
 # JSON production samples
+infra
 samples/
 WEX-AWS-Audit.csv
 aws.txt
