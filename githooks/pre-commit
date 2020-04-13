@@ -29,4 +29,8 @@ for script in stack-*.bash; do
     shellcheck -x "$script" shell-utils.bash
 done
 
+for json in $(find . -name '*.json'); do
+    jq . "$json" > /dev/null
+done
+
 exit 0
