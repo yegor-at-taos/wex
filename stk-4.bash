@@ -24,7 +24,7 @@ stack_name="$account_name-$short_region-cfn-endpoints-stk"
 
 json=$(remove_on_exit --suffix='.json')
 
-cp $json_template $json
+cp "$json_template" "$json"
 
 fragment=$(remove_on_exit --suffix=.json)
 combined=$(remove_on_exit --suffix=.json)
@@ -66,6 +66,7 @@ mv "$combined" "$json"
 aws --profile "wex-$profile" --region "$region" \
     cloudformation "$(create_or_update "$stack_name")-stack" \
     --stack-name "$stack_name" --template-body "file://$json" \
+    --tags "$(retrieve_tags)" \
     --capabilities CAPABILITY_AUTO_EXPAND \
     --parameters "[
         {

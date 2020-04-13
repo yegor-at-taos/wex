@@ -3,7 +3,7 @@
 . shell-utils.bash
 
 if [[ $region != 'global' ]]; then
-    echo IAM Roles should use region 'global', not $region.
+    echo IAM Roles should use region 'global', not "$region".
     exit 1
 fi
 

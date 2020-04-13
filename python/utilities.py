@@ -27,6 +27,9 @@ exported = {
         'auto_associate_function': (
             'cfn-lambda-utilities',
             'cfnautoassociate-arn'),
+        'satellite-role': (
+            'cfn-satellite-permissions',
+            'role-arn'),
 }
 
 logger = logging.getLogger()
@@ -40,14 +43,15 @@ def mk_id(args):
     return args[0] + digest.hexdigest()[-17:]
 
 
-def import_value(event, wex, resource):
-    '''
-    Generates Fn::ImportValue to import resource from the stack
-    or hardcode the value if template has @.. inline
-    '''
+def import_value(event, wex, resource, region=None):
+    if region is None:
+        region = re.sub('(.).*?-', '\\1', event['region'])
+    else:
+        region = 'global'
+
     import_name = event['templateParameterValues']['Lob'] + \
         '-' + event['templateParameterValues']['Environment'] + \
-        '-' + re.sub('(.).*?-', '\\1', event['region']) + \
+        '-' + region + \
         '-' + '-stk-'.join(exported[resource])
 
     return {

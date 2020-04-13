@@ -233,7 +233,10 @@ def create_template(event, context):
                                 'auto_associate_function'
                                 ),
                         'VpcDni': data['VpcDni'],
-                        'RoleARN': wex['Infoblox']['LambdaSatelliteRole'],
+                        'RoleARN': utilities.import_value(event,
+                                                          wex,
+                                                          'satellite-role',
+                                                          region='global'),
                         'Principal': principal,
                         'RuleId': utilities.get_attr(rule_id,
                                                      'ResolverRuleId'),
