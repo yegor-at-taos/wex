@@ -1,4 +1,4 @@
 {
     "LambdaUtilitiesRole": "WexCloudFormationLambdaUtilitiesRole",
-    "LambdaSatelliteRole": "WexCFNCrossAccountRole"
+    "LambdaSatelliteRole": "WexCloudFormationCrossAccountRole"
 }

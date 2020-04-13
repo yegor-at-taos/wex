@@ -1,6 +1,21 @@
 #!/bin/bash
 
+print_info() {
+    cat <<EOF
+Stack name: Lambda Macro stack [stack name will change during execution in prod]
+Input Parameters:
+Lambda role stack name i.e., stack name from stack-1 to use the export values from it
+Lambda Version
+Output parameters: 
+Export lambda Arn for route53 resolvers and Transform resource name
+Export lambda Arn for Onprem zones and Transform resource name
+Export lambda Arn for Hosted zones and Transform resource name
+EOF
+}
+
 . shell-utils.bash
+
+print_info()
 
 stack_name="$account_name-$short_region-cfn-lambda-utilities-stk"
 bucket="wex-account-default-scripts-$region"

@@ -21,11 +21,13 @@ cleanup() {
 
 create_or_update() {
     # sleep until '..._IN_PROGRESS' status is gone
+    local temp_region=$region \
+        && [[ $region = 'global' ]] && temp_region="us-east-1"
     while true; do
         local temp count status
         temp=$(remove_on_exit --suffix=".json")
 
-        aws --profile "wex-$profile" --region "$region" \
+        aws --profile "wex-$profile" --region "$temp_region" \
             cloudformation list-stacks > "$temp"
 
         count=$(jq "[.StackSummaries[]
@@ -70,6 +72,13 @@ account_name() {
             echo "${name//\"/}"
         fi
     fi
+}
+
+retrieve_tags() {
+    jq "[ .Mappings.Wex.Tags[] |
+        select(.Key == \"Lob\").Value = \"$wex_lob\" |
+        select(.Key == \"Environment\").Value = \"$wex_environment\"
+            ]" "$json_template"
 }
 
 fn_join() {
@@ -120,15 +129,18 @@ while (( $# )); do
     esac
 done
 
-# shellcheck disable=SC2001
-readonly short_region=$(sed -e 's/\(.\)[^-]*-/\1/g' <<< "$region")
-readonly upper_region=$(tr '[:lower:]' '[:upper:]' <<< "$short_region")
+if [[ $region == 'global' ]]; then
+    readonly short_region='glb'
+    readonly upper_region='GLB'
+else
+    # shellcheck disable=SC2001
+    readonly short_region=$(sed -e 's/\(.\)[^-]*-/\1/g' <<< "$region")
+    readonly upper_region=$(tr '[:lower:]' '[:upper:]' <<< "$short_region")
+fi
 readonly account_name=$(account_name "$profile")
 readonly json_template='json/cloudformation-template.json'
-readonly role_master=$(jq '.Mappings.Wex.Infoblox.LambdaMasterRole' \
-    $json_template | sed -e 's/^"//;s/"$//')
-readonly role_satellite=$(jq '.Mappings.Wex.Infoblox.LambdaSatelliteRole' \
-    $json_template | sed -e 's/^"//;s/"$//')
+readonly role_utilities=$(jq -r '.LambdaUtilitiesRole' static_parameters.json)
+readonly role_satellite=$(jq -r '.LambdaSatelliteRole' static_parameters.json)
 
 readonly wex_lob=${account_name%-?*}
 readonly wex_environment=${account_name#?*-}
@@ -136,7 +148,7 @@ readonly wex_environment=${account_name#?*-}
 # shellcheck disable=SC2034
 readonly \
     account_name \
-    role_master \
+    role_utilities \
     role_satellite \
     lambda_version \
     json_template \

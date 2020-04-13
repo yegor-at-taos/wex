@@ -48,5 +48,30 @@
       "Type": "String",
       "Description": "Lambda Utilities IAM Role name"
     }
+  },
+  "Outputs": {
+    "WexCloudFormationLambdaUtilitiesRoleExport": {
+      "Description": "Wex Inc., CFN AWS Lambda Utilities IAM Role",
+      "Value": {
+        "Fn::GetAtt": [
+          "WexCloudFormationLambdaUtilitiesRole",
+          "Arn"
+        ]
+      },
+      "Export": {
+        "Name": {
+          "Fn::Join": [
+            "-",
+            [
+              {
+                "Ref": "AWS::StackName"
+              },
+              "role",
+              "arn"
+            ]
+          ]
+        }
+      }
+    }
   }
 }

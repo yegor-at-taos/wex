@@ -5,17 +5,18 @@
     "WexRamCloudFormationCrossAccountRole": {
       "Type": "AWS::IAM::Role",
       "Properties": {
-        "RoleName": "WexRamCloudFormationCrossAccountRole",
+        "RoleName": {
+          "Ref": "RoleName"
+        },
         "AssumeRolePolicyDocument": {
           "Version": "2012-10-17",
           "Statement": [
             {
               "Effect": "Allow",
               "Principal": {
-                "AWS": [
-                  "544308222195",
-                  "189106039250"
-                ]
+                "AWS": {
+                  "Ref": "MasterPrincipals"
+                }
               },
               "Action": [
                 "sts:AssumeRole"
@@ -43,6 +44,42 @@
             }
           }
         ]
+      }
+    }
+  },
+  "Parameters": {
+    "RoleName": {
+      "Type": "String",
+      "Description": "Lambda Satellite IAM Role name"
+    },
+    "MasterPrincipals": {
+        "Type": "CommaDelimitedList",
+        "Description": "Master AWS Principals",
+        "Default": "544308222195, 189106039250"
+    }
+  },
+  "Outputs": {
+    "WexRamCloudFormationCrossAccountRoleExport": {
+      "Description": "Wex Inc., CFN AWS Lambda Satellite IAM Role",
+      "Value": {
+        "Fn::GetAtt": [
+          "WexRamCloudFormationCrossAccountRole",
+          "Arn"
+        ]
+      },
+      "Export": {
+        "Name": {
+          "Fn::Join": [
+            "-",
+            [
+              {
+                "Ref": "AWS::StackName"
+              },
+              "role",
+              "arn"
+            ]
+          ]
+        }
       }
     }
   }
