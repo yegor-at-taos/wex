@@ -1,24 +1,25 @@
 #!/bin/bash
 
-print_info() {
-    cat <<EOF
-Stack name: Lambda Macro stack [stack name will change during execution in prod]
-Input Parameters:
-Lambda role stack name i.e., stack name from stack-1 to use the export values from it
-Lambda Version
-Output parameters: 
-Export lambda Arn for route53 resolvers and Transform resource name
-Export lambda Arn for Onprem zones and Transform resource name
-Export lambda Arn for Hosted zones and Transform resource name
-EOF
-}
-
 . shell-utils.bash
 
-print_info()
+if [[ $region = 'global' ]]; then
+    echo "This stack is regional; can't use pseudo-region 'global'"
+    exit 1
+fi
+
+cat <<EOF
+Stack name: Lambda Macro stack [stack name will change during execution in prod]
+Input Parameters:
+    Lambda Role Name (not stack name)
+    Lambda Version
+Output parameters: 
+    Export lambda Arn for route53 resolvers and Transform resource name
+    Export lambda Arn for Onprem zones and Transform resource name
+    Export lambda Arn for Hosted zones and Transform resource name
+EOF
 
 stack_name="$account_name-$short_region-cfn-lambda-utilities-stk"
-bucket="wex-account-default-scripts-$region"
+bucket="$(jq -r '.S3BucketName' static_parameters.json)"
 
 json=$(remove_on_exit --suffix='.json')
 
@@ -93,12 +94,12 @@ for script in $(ls python); do  # note that 'noglob' is ON
     zip -9jq "$zipfile" "python/$script" python/utilities.py
 
     aws --profile "wex-$profile" --region "$region" \
-        s3 cp "$zipfile" "s3://$bucket/$function.$lambda_version.zip"
+        s3 cp "$zipfile" "s3://$bucket-$region/$function.$lambda_version.zip"
 
     aws --profile "wex-$profile" --region "$region" \
         s3api put-object-tagging \
-        --bucket "$bucket" --key "$function.$lambda_version.zip" \
-        --tagging "{\"TagSet\": $(jq .Mappings.Wex.Tags "$json_template")}"
+        --bucket "$bucket-$region" --key "$function.$lambda_version.zip" \
+        --tagging "{\"TagSet\": $(retrieve_tags)}"
 
     # Add Permissions object
     cat > "$fragment" <<EOF
@@ -122,7 +123,17 @@ for script in $(ls python); do  # note that 'noglob' is ON
       "Properties": {
         "Code": {
           "S3Bucket": {
-            "Ref": "S3BucketName"
+            "Fn::Join": [
+              "-",
+              [
+                {
+                  "Ref": "S3BucketName"
+                },
+                {
+                  "Ref": "AWS::Region"
+                }
+              ]
+            ]
           },
           "S3Key": {
             "Fn::Join": [
@@ -142,7 +153,7 @@ for script in $(ls python); do  # note that 'noglob' is ON
         "Runtime": "python3.7",
         "Timeout": "5",
         "Role": $(fragment_iam_role),
-        "Tags": $(jq .Mappings.Wex.Tags "$json_template")
+        "Tags": $(retrieve_tags)
       }
     },
     "${function}Logs": {
@@ -158,8 +169,8 @@ EOF
     jq -n 'reduce inputs as $i ({}; . * $i)' "$json" "$fragment" > "$combined"
     mv "$combined" "$json"
 
+    # Add Macro if FunctionName matches 'Transform'
     if [[ $function =~ 'Transform' ]]; then
-        # Add Transform object if FunctionName matches 'Transform'
         cat > "$fragment" <<EOF
 {
   "Resources": {
@@ -179,9 +190,12 @@ EOF
   }
 }
 EOF
-    else
-        # Export Function name if it's not a transform Macro
-        cat > "$fragment" <<EOF
+    fi
+    jq -n 'reduce inputs as $i ({}; . * $i)' "$json" "$fragment" > "$combined"
+    mv "$combined" "$json"
+
+    # Export Function name
+    cat > "$fragment" <<EOF
 {
   "Outputs": {
     "${function}": {
@@ -207,8 +221,25 @@ EOF
         }
       }
     }
-  },
+  }
+}
+EOF
+    jq -n 'reduce inputs as $i ({}; . * $i)' "$json" "$fragment" > "$combined"
+    mv "$combined" "$json"
+done
+
+# Append Parameters
+cat > "$fragment" <<EOF
+{
   "Parameters": {
+    "RoleName": {
+      "Type": "String",
+      "Description": "AWS IAM Role name; this is global and can't be derived"
+    },
+    "LambdaVersion": {
+      "Type": "String",
+      "Description": "AWS Lambda Utilities Version"
+    },
     "Lob": {
       "Type": "String",
       "Description": "WEX Inc., Line of business; eg. 'coreservices'"
@@ -217,25 +248,15 @@ EOF
       "Type": "String",
       "Description": "WEX Inc., environment; eg. 'prod'"
     },
-    "RoleName": {
-      "Type": "String",
-      "Description": "AWS IAM Role name; this is global and can't be derived"
-    },
     "S3BucketName": {
       "Type": "String",
       "Description": "AWS S3BucketName"
-    },
-    "LambdaVersion": {
-      "Type": "String",
-      "Description": "AWS Lambda Utilities Version"
     }
   }
 }
 EOF
-    fi
-    jq -n 'reduce inputs as $i ({}; . * $i)' "$json" "$fragment" > "$combined"
-    mv "$combined" "$json"
-done
+jq -n 'reduce inputs as $i ({}; . * $i)' "$json" "$fragment" > "$combined"
+mv "$combined" "$json"
 
 # WORKAROUND: 'update' won't pull Python from S3; delete and create again
 while true; do
@@ -247,7 +268,7 @@ done
 
 aws --profile "wex-$profile" --region "$region" \
     cloudformation "$command-stack" \
-    --tags "$(jq .Mappings.Wex.Tags "$json_template")" \
+    --tags "$(retrieve_tags)" \
     --stack-name "$stack_name" --template-body "file://$json" \
     --parameters "[
         {
@@ -260,7 +281,7 @@ aws --profile "wex-$profile" --region "$region" \
         },
         {
             \"ParameterKey\": \"RoleName\",
-            \"ParameterValue\": $(jq .LambdaUtilitiesRole static_parameters.json)
+            \"ParameterValue\": $(jq '.LambdaUtilitiesRole' static_parameters.json)
         },
         {
             \"ParameterKey\": \"S3BucketName\",

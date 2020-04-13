@@ -1,4 +1,5 @@
 {
     "LambdaUtilitiesRole": "WexCloudFormationLambdaUtilitiesRole",
-    "LambdaSatelliteRole": "WexCloudFormationCrossAccountRole"
+    "LambdaSatelliteRole": "WexCloudFormationCrossAccountRole",
+    "S3BucketName": "wex-account-default-scripts"
 }
