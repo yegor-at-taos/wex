@@ -169,7 +169,7 @@ EOF
     jq -n 'reduce inputs as $i ({}; . * $i)' "$json" "$fragment" > "$combined"
     mv "$combined" "$json"
 
-    # Add Macro if FunctionName matches 'Transform'
+    # Macro if FunctionName matches 'Transform'
     if [[ $function =~ 'Transform' ]]; then
         cat > "$fragment" <<EOF
 {
@@ -185,6 +185,26 @@ EOF
           ]
         },
         "LogGroupName": $(fragment_log_group_name "$function")
+      }
+    }
+  },
+  "Outputs": {
+    "${function}MacroExport": {
+      "Description": "CFN: $function Macro",
+      "Value": "${function}Macro",
+      "Export": {
+        "Name": {
+          "Fn::Join": [
+            "-",
+            [
+              {
+                "Ref": "AWS::StackName"
+              },
+              "$(tr '[:upper:]' '[:lower:]' <<< "${function}")",
+              "macro"
+            ]
+          ]
+        }
       }
     }
   }

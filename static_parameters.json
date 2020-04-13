@@ -1,5 +1,7 @@
 {
     "LambdaUtilitiesRole": "WexCloudFormationLambdaUtilitiesRole",
     "LambdaSatelliteRole": "WexCloudFormationCrossAccountRole",
-    "S3BucketName": "wex-account-default-scripts"
+    "S3BucketName": "wex-account-default-scripts",
+    "CFNEndpointsTransformMacro": "CFNEndpointsTransformMacro",
+    "CFNZonesTransformMacro": "CFNZonesTransformMacro"
 }

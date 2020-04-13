@@ -49,7 +49,7 @@ def count_exported_subnets(event, context):
         else:
             request_exports['NextToken'] = response_exports['NextToken']
 
-    return count
+    return min(count, int(event['templateParameterValues']['MaxIpAddresses']))
 
 
 def create_template(event, context):

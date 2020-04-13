@@ -178,43 +178,38 @@ def create_template(event, context):
     # Share created ResolverRule(s) to all principals (except self)
     principals = set(wex['Accounts']) - set([event['accountId']])
 
-    if not shared:  # don't create 'empty' shares if nothing to share
-        principals.clear()
-
-    for principal in list(principals):
-        # Create one share with all rules per principal
+    # Per Naidu: create just one ResourceShare object for everything
+    if shared:
         share_id = utilities.mk_id(
                 [
                     f'rs{kind}ResourceShare',
                     region,
-                    principal,
                     ]
                 )
-
-        logger.debug(f'Sharing to principal {principal} id: {share_id}')
 
         resources[share_id] = {
                 'Type': 'AWS::RAM::ResourceShare',
                 'Properties': {
-                    'Name': f'Wex-{kind}-Zones-Share-{principal}',
+                    'Name': f'Wex-{kind}-Zones-Share',
                     'ResourceArns': [
                             utilities.get_attr(shared_id, 'Arn')
                             for shared_id
                             in shared
                             ],
-                    'Principals': [principal],
+                    'Principals': list(principals),
                     'Tags': wex['Tags'] + [
                         {
                             'Key': 'Name',
-                            'Value': f'Wex-{kind}-Zones-Share-{principal}',
+                            'Value': f'Wex-{kind}-Zones-Share',
                             },
                         ],
                     },
                 }
 
-        # Create one auto-association object per rule
-        # NOTE: rule_id s the same across the accounts. However,
-        # AWS documentation does not formally guarantee this.
+    # Create one auto-association object per rule
+    # NOTE: rule_id s the same across the accounts. However,
+    # AWS documentation does not formally guarantee this.
+    for principal in principals:
         for rule_id in shared:
             auto_associate_id = utilities.mk_id(
                     [

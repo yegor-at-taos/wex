@@ -29,8 +29,6 @@
         }
       ],
       "Infoblox": {
-        "LambdaMasterRole": "WexCFNLambdaUtilitiesRole",
-        "LambdaSatelliteRole": "WexCFNCrossAccountRole",
         "Regions": {
           "default": {
             "VpcDni": [
