@@ -24,7 +24,6 @@
             }
           ]
         },
-        "Path": "/",
         "Policies": [
           {
             "PolicyName": "root",
@@ -33,7 +32,11 @@
               "Statement": [
                 {
                   "Effect": "Allow",
-                  "Action": "*",
+                  "Action": [
+                    "logs:*",
+                    "cloudformation:ListExports",
+                    "sts:AssumeRole"
+                  ],
                   "Resource": "*"
                 }
               ]

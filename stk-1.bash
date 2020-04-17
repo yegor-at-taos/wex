@@ -29,7 +29,7 @@ json=$(remove_on_exit --suffix=".json")
 json_address=$(jq -r '.Resources|keys[0]' "$json_source")
 jq ".Resources.$json_address.Properties.Tags |= . +
     $(retrieve_tags) | .Resources.$json_address.Properties.RoleName =
-        \"${role_satellite}\"" "$json_source" > "$json"
+        \"${role_utilities}\"" "$json_source" > "$json"
 
 aws --profile "wex-$profile" --region "us-east-1" \
     cloudformation "$(create_or_update "$stack")-stack" \

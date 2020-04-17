@@ -33,7 +33,6 @@
                 {
                   "Effect": "Allow",
                   "Action": [
-                      "ram:AcceptResourceShareInvitation",
                       "cloudformation:ListExports",
                       "route53resolver:AssociateResolverRule",
                       "ec2:DescribeVpcs"

@@ -19,7 +19,7 @@ Output parameters:
 EOF
 
 stack_name="$account_name-$short_region-cfn-lambda-utilities-stk"
-bucket="$(jq -r '.S3BucketName' static_parameters.json)"
+bucket="$account_name-$(jq -r '.S3BucketName' static_parameters.json)"
 
 json=$(remove_on_exit --suffix='.json')
 
@@ -61,12 +61,12 @@ fragment_log_group_name() {
 cat <<EOF
 {
   "Fn::Join": [
-    "-",
+    "/",
     [
+      "/aws/lambda",
       {
-        "Ref": "AWS::StackName"
-      },
-      "$1"
+        "Ref": "$1"
+      }
     ]
   ]
 }
@@ -161,7 +161,10 @@ for script in $(ls python); do  # note that 'noglob' is ON
       "Properties": {
         "LogGroupName": $(fragment_log_group_name "$function"),
         "RetentionInDays": 7
-      }
+      },
+      "DependsOn": [
+        "${function}"
+      ]
     }
   }
 }
@@ -184,6 +187,7 @@ EOF
             "Arn"
           ]
         },
+        "LogRoleARN": $(fragment_iam_role),
         "LogGroupName": $(fragment_log_group_name "$function")
       }
     }
