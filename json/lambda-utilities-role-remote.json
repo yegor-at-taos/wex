@@ -53,8 +53,8 @@
     },
     "MasterPrincipals": {
         "Type": "CommaDelimitedList",
-        "Description": "Master AWS Principals",
-        "Default": "544308222195, 189106039250"
+        "Description": "Master AWS Principals; custodian-prod, coreservices-prod, custodian-dev",
+        "Default": "544308222195, 189106039250, 229349022034"
     }
   },
   "Outputs": {

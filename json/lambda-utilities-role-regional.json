@@ -34,7 +34,7 @@
                   "Effect": "Allow",
                   "Action": [
                     "logs:*",
-                    "cloudformation:ListExports",
+                    "cloudformation:*",
                     "sts:AssumeRole"
                   ],
                   "Resource": "*"
