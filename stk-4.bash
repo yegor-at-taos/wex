@@ -42,13 +42,11 @@ cat > "$fragment" <<EOF
   "Parameters": {
     "LambdaStack": {
       "Type": "String",
-      "Description": "Lambda Utilities stack name (NOTE: unused)",
-      "Default": "$wex_lob-$wex_environment-$short_region-lambda-utilities-stk"
+      "Description": "Lambda Utilities stack name"
     },
     "MaxIpAddresses": {
       "Type": "Number",
       "Description": "Max. number of IP addresses to allocate per endpoint",
-      "Default": 2,
       "AllowedValues": [
         1,
         2,
@@ -69,6 +67,14 @@ aws --profile "wex-$profile" --region "$region" \
     --tags "$(retrieve_tags)" \
     --capabilities CAPABILITY_AUTO_EXPAND \
     --parameters "[
+        {
+            \"ParameterKey\": \"LambdaStack\",
+            \"ParameterValue\": \"$wex_lob-$wex_environment-$short_region-lambda-utilities-stk\"
+        },
+        {
+            \"ParameterKey\": \"MaxIpAddresses\",
+            \"ParameterValue\": 2
+        },
         {
             \"ParameterKey\": \"Lob\",
             \"ParameterValue\": \"$wex_lob\"
