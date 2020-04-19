@@ -1,7 +1,6 @@
 #!/usr/bin/python3
 import boto3
 import logging
-import re
 import traceback
 
 import utilities
@@ -33,12 +32,10 @@ def handler(event, context):
 
 
 def generate_access_token(event, context):
-    # This is a nasty hack: substitute principal ID with the target
-    # principal ID. Note that we have to deploy satellite stack locally
     role_arn = {
-            'RoleArn': re.sub('::\\d+:',
-                              f'::{event["ResourceProperties"]["Principal"]}:',
-                              event["ResourceProperties"]["RoleARN"]),
+            'RoleArn': 'arn:aws:iam::'
+                       f'{event["ResourceProperties"]["Principal"]}:role/'
+                       f'{event["ResourceProperties"]["RoleARN"]}',
             'RoleSessionName': 'cross_account_lambda'
             }
     logger.info(f'Using remote role ARN: {role_arn}')
