@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import boto3
 import json
 import hashlib
 import logging
@@ -59,7 +60,7 @@ def import_value(event, wex, resource, region=None):
             }
 
 
-def get_attr(resource_name, attribute_name):
+def fn_get_att(resource_name, attribute_name):
     return {
         'Fn::GetAtt': [
             resource_name,
@@ -119,3 +120,46 @@ def send_response(status, event, context, data):
         logger.error(f'An error occured: {e}')
 
     logger.debug(f"Response status code: {response.status}")
+
+
+def boto3_list(method, access_token=dict(), request=dict()):
+    boto3_map = {
+            'exports': (
+                'cloudformation',
+                'Exports',
+                ),
+            'resolver_rule_associations': (
+                'route53resolver',
+                'ResolverRuleAssociations',
+                ),
+            'resolver_endpoint_ip_addresses': (
+                'route53resolver',
+                'IpAddresses',
+                ),
+            'stack_resources': (
+                'cloudformation',
+                'StackResourceSummaries',
+                ),
+            }
+
+    client = boto3.client(boto3_map[method][0], **access_token)
+
+    value = list()
+
+    while True:
+        response = getattr(client, f'list_{method}')(**request)
+
+        value += response[boto3_map[method][1]]
+
+        if 'NextToken' not in response:
+            return value
+        else:
+            request['NextToken'] = response['NextToken']
+
+
+def is_exported_vpc(export):
+    if not export['Name'].endswith('-stk-Vpc-Id'):
+        return False
+    # NOTE More checks can be added here
+    # like stack name (as `ExportingStackId`)
+    return True

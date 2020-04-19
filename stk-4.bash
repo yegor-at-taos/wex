@@ -73,7 +73,7 @@ aws --profile "wex-$profile" --region "$region" \
         },
         {
             \"ParameterKey\": \"MaxIpAddresses\",
-            \"ParameterValue\": 2
+            \"ParameterValue\": \"2\"
         },
         {
             \"ParameterKey\": \"Lob\",

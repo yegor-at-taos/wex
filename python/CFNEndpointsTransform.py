@@ -119,7 +119,7 @@ def create_template(event, context):
                     in range(az_count)
                     ],
                 'SecurityGroupIds': [
-                    utilities.get_attr(sg_in_id, 'GroupId'),
+                    utilities.fn_get_att(sg_in_id, 'GroupId'),
                     ],
                 'Tags': wex['Tags'],
                 },
@@ -174,7 +174,7 @@ def create_template(event, context):
                     in range(az_count)
                     ],
                 'SecurityGroupIds': [
-                    utilities.get_attr(sg_out_id, 'GroupId'),
+                    utilities.fn_get_att(sg_out_id, 'GroupId'),
                     ],
                 'Tags': wex['Tags'],
                 },

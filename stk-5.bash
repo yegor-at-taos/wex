@@ -19,7 +19,14 @@ cat > "$fragment" <<EOF
   "Description": "WEX Inc., AWS Route 53 Resolver $kind rules and shares",
   "Mappings": {
     "Wex": {
+      "StackName": "$stack_name",
       "Tags": $(retrieve_tags)
+    }
+  },
+  "Parameters": {
+    "CrossAccountRoleName": {
+      "Type": "String",
+      "Description": "Lambda Satellite IAM Role name"
     }
   },
   "Transform": [
@@ -35,8 +42,11 @@ aws --profile "wex-$profile" --region "$region" \
     --stack-name "$stack_name" --template-body "file://$json" \
     --tags "$(retrieve_tags)" \
     --capabilities CAPABILITY_AUTO_EXPAND \
-    --on-failure DO_NOTHING \
     --parameters "[
+        {
+            \"ParameterKey\": \"CrossAccountRoleName\",
+            \"ParameterValue\": \"$role_satellite\"
+        },
         {
             \"ParameterKey\": \"Lob\",
             \"ParameterValue\": \"$wex_lob\"

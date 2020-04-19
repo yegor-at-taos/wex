@@ -13,7 +13,11 @@ logger.setLevel(logging.DEBUG)
 
 def handler(event, context):
     try:
-        return create_template(event, context)
+        value = create_template(deepcopy(event), context)
+
+        sync_remote_associations(event, value, context)
+
+        return value
 
     except Exception as e:
         return {
@@ -24,23 +28,56 @@ def handler(event, context):
                 }
 
 
-def retrieve_all_exports(event, wex):
-    cfm = boto3.client('cloudformation')
-    request = {
-            }
+def sync_remote_resource(resource, original, processed, context):
+    return
 
-    value = dict()
 
-    while True:
-        response = cfm.list_exports(**request)
+def sync_remote_associations(original, processed, context):
+    # This kind of duplicates the functionality of AutoAssociate but
+    # only for existing objects as AutoAssociate is not get called for them.
+    # Also, unlike AutoAssociate it does disassociate in case VPC got
+    # added to the DNI list.
+    wex = original['fragment']['Mappings']['Wex']
 
-        for export in response['Exports']:
-            value[export['Name']] = export['Value']
+    resources = utilities.boto3_list('stack_resources',
+                                     dict(),
+                                     {
+                                         'StackName': wex['StackName']
+                                         }
+                                     )
+    print(resources)
 
-        if 'NextToken' not in response:
-            return value
+    # AWS::CloudFormation::CustomResource is a resource used for cross-account
+    # link; however, only process cross-account resources in the 'processed'
+    # template. Assuming that if resource is going away then rule share is
+    # also going away and will be gone (and disassociated automatically).
+    for resource_name, resource in processed['fragment']['Resources'].items():
+        if resource['Type'] != 'AWS::CloudFormation::CustomResource':
+            continue
 
-        request['NextToken'] = response['NextToken']
+        if not isinstance(resource['Properties']['RoleARN'], dict) or \
+                resource['Properties']['RoleARN'].keys() != set(['Ref']) or \
+                not isinstance(resource['Properties']['RoleARN']['Ref'], str):
+            raise ValueError('RoleARN must be a Ref')
+
+        role_arn = original["templateParameterValues"][
+                resource["Properties"]["RoleARN"]["Ref"]
+                ]
+        role_arn = {
+                'RoleArn': 'arn:aws:iam::'
+                           f'{resource["Properties"]["Principal"]}:role/'
+                           f'{role_arn}',
+                'RoleSessionName': 'cross_account_lambda'
+                }
+
+        peer = boto3.client('sts').assume_role(**role_arn)['Credentials']
+
+        access_token = {
+                'aws_access_key_id': peer['AccessKeyId'],
+                'aws_secret_access_key': peer['SecretAccessKey'],
+                'aws_session_token': peer['SessionToken'],
+                }
+        print(access_token)
 
 
 def retrieve_cfn_export(event, wex, export):
@@ -49,25 +86,27 @@ def retrieve_cfn_export(event, wex, export):
     export_name = utilities.import_value(event, wex, export)
     export_name = export_name['Fn::ImportValue']
 
-    for k, v in retrieve_all_exports(event, wex).items():
-        if k == export_name:
-            return v
+    for export in utilities.boto3_list('exports'):
+        if export['Name'] == export_name:
+            return export['Value']
 
     raise RuntimeError(f'{export_name} not found in CFN exports')
 
 
 def retrieve_inbound_ips(event, wex):
-    resolver_id = retrieve_cfn_export(event, wex, 'endpoint_inbound')
+    endpoint_id = retrieve_cfn_export(event, wex, 'endpoint_inbound')
 
-    r53 = boto3.client('route53resolver')
     value = [
             {
                 'Ip': ip['Ip'],
                 'Port': '53',
                 }
             for ip
-            in r53.list_resolver_endpoint_ip_addresses(
-                ResolverEndpointId=resolver_id)['IpAddresses']
+            in utilities.boto3_list('resolver_endpoint_ip_addresses',
+                                    request={
+                                        'ResolverEndpointId': endpoint_id,
+                                        }
+                                    )
         ]
 
     if not value:
@@ -151,11 +190,11 @@ def create_template(event, context):
         # Associate to all locally exported VPCs (except the ones listed
         # in the DNI section).
         if kind == 'OnPremZones':
-            for k, v in retrieve_all_exports(event, wex).items():
-                if not k.endswith('-stk-Vpc-Id'):
+            for export in utilities.boto3_list('exports'):
+                if not utilities.is_exported_vpc(export):
                     continue
-                if 'VpcDni' in data and v in data['VpcDni']:
-                    logger.info(f'{k} is in VpcDni')
+                if 'VpcDni' in data and \
+                        export['Name'] in data['VpcDni']:
                     continue
                 rule_assoc_id = utilities.mk_id(
                         [
@@ -170,8 +209,9 @@ def create_template(event, context):
                         'AWS::Route53Resolver::ResolverRuleAssociation',
                         'Properties': {
                             'ResolverRuleId':
-                                utilities.get_attr(rule_id, 'ResolverRuleId'),
-                            'VPCId': v,
+                                utilities.fn_get_att(rule_id,
+                                                     'ResolverRuleId'),
+                            'VPCId': export['Value'],
                             }
                         }
 
@@ -192,7 +232,7 @@ def create_template(event, context):
                 'Properties': {
                     'Name': f'Wex-{kind}-Zones-Share',
                     'ResourceArns': [
-                            utilities.get_attr(shared_id, 'Arn')
+                            utilities.fn_get_att(shared_id, 'Arn')
                             for shared_id
                             in shared
                             ],
@@ -233,13 +273,12 @@ def create_template(event, context):
                                 'auto_associate_function'
                                 ),
                         'VpcDni': data['VpcDni'],
-                        'RoleARN': utilities.import_value(event,
-                                                          wex,
-                                                          'satellite-role',
-                                                          region='global'),
+                        'RoleARN': {
+                            'Ref': 'CrossAccountRoleName'
+                            },
                         'Principal': principal,
-                        'RuleId': utilities.get_attr(rule_id,
-                                                     'ResolverRuleId'),
+                        'RuleId': utilities.fn_get_att(rule_id,
+                                                       'ResolverRuleId'),
                         },
                     'DependsOn': [
                         share_id,
