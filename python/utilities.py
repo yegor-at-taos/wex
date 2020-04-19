@@ -33,6 +33,25 @@ exported = {
             'role-arn'),
 }
 
+boto3_map = {
+        'exports': (
+            'cloudformation',
+            'Exports',
+            ),
+        'resolver_rule_associations': (
+            'route53resolver',
+            'ResolverRuleAssociations',
+            ),
+        'resolver_endpoint_ip_addresses': (
+            'route53resolver',
+            'IpAddresses',
+            ),
+        'stack_resources': (
+            'cloudformation',
+            'StackResourceSummaries',
+            ),
+        }
+
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
@@ -123,25 +142,6 @@ def send_response(status, event, context, data):
 
 
 def boto3_list(method, access_token=dict(), request=dict()):
-    boto3_map = {
-            'exports': (
-                'cloudformation',
-                'Exports',
-                ),
-            'resolver_rule_associations': (
-                'route53resolver',
-                'ResolverRuleAssociations',
-                ),
-            'resolver_endpoint_ip_addresses': (
-                'route53resolver',
-                'IpAddresses',
-                ),
-            'stack_resources': (
-                'cloudformation',
-                'StackResourceSummaries',
-                ),
-            }
-
     client = boto3.client(boto3_map[method][0], **access_token)
 
     value = list()
@@ -152,9 +152,14 @@ def boto3_list(method, access_token=dict(), request=dict()):
         value += response[boto3_map[method][1]]
 
         if 'NextToken' not in response:
-            return value
+            break
         else:
             request['NextToken'] = response['NextToken']
+
+    if 'NextToken' in request:
+        del request['NextToken']
+
+    return value
 
 
 def is_exported_vpc(export):
