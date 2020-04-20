@@ -78,7 +78,7 @@ def sync_remote_associations(event, context):
             set(event['ResourceProperties']['VpcDni']):
         for rule_id in local_exported_rules:
             need.add((vpc, rule_id))
-    logger.debug(f'{need}')
+    logger.debug(f'local needs: {need}')
 
     # `have`: associations we actually have
     have = set([
@@ -89,7 +89,7 @@ def sync_remote_associations(event, context):
         if association['ResolverRuleId'] in local_exported_rules
         and association['Status'] == 'COMPLETE'
         ])
-    logger.debug(f'{have}')
+    logger.debug(f'remote has: {have}')
 
     # create missing
     for pair in need - have:
@@ -98,7 +98,7 @@ def sync_remote_associations(event, context):
                              request={
                                  'VPCId': pair[0],
                                  'ResolverRuleId': pair[1],
-                                 'Name': 'CFN-created; do not remove manually',
+                                 'Name': 'Do not remove manually',
                                  },
                              access_token=access_token)
 
