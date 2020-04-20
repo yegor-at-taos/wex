@@ -19,7 +19,9 @@ cat > "$fragment" <<EOF
   "Description": "WEX Inc., AWS Route 53 Resolver $kind rules and shares",
   "Mappings": {
     "Wex": {
-      "Tags": $(retrieve_tags)
+      "Tags": $(retrieve_tags),
+      "$kind": $(jq .Mappings.Wex.$kind),
+      "Accounts": $(jq .Mappings.Wex.Accounts)
     }
   },
   "Parameters": {
