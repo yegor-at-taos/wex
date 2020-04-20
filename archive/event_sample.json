@@ -1,0 +1,52 @@
+{
+  "accountId": "229349022034",
+  "fragment": {
+    "AWSTemplateFormatVersion": "2010-09-09",
+    "Parameters": {
+      "Lob": {
+        "Type": "String",
+        "Description": "WEX Inc., Line of business; eg. \"coreservices\""
+      },
+      "Environment": {
+        "Type": "String",
+        "Description": "WEX Inc., environment; eg. \"prod\""
+      },
+      "Instantiate": {
+        "Type": "String",
+        "AllowedValues": [
+          "AwsZones",
+          "OnPremZones"
+        ],
+        "Description": "Instantiate for AwsZones or OnPremZones"
+      },
+      "LambdaStack": {
+        "Type": "String",
+        "Description": "Lambda Utilities stack name (NOTE: unused)",
+        "Default": "custodian-dev-ue1-lambda-utilities-stk"
+      },
+      "MaxIpAddresses": {
+        "Type": "Number",
+        "Description": "Max. number of IP addresses to allocate per endpoint",
+        "Default": 2,
+        "AllowedValues": [
+          1,
+          2,
+          3
+        ]
+      }
+    },
+    "Description": "WEX Inc., AWS Route 53 Resolver Endpoints and SGs",
+    "Mappings": {}
+  },
+  "transformId": "229349022034::CFNEndpointsTransformMacro",
+  "requestId": "e1ca68e2-40f2-42d2-b400-aa11e6c790e6",
+  "region": "us-east-1",
+  "params": {},
+  "templateParameterValues": {
+    "Environment": "dev",
+    "Instantiate": "AwsZones",
+    "MaxIpAddresses": "2",
+    "LambdaStack": "custodian-dev-ue1-lambda-utilities-stk",
+    "Lob": "custodian"
+  }
+}

@@ -22,6 +22,12 @@ cat > "$fragment" <<EOF
       "Tags": $(retrieve_tags)
     }
   },
+  "Parameters": {
+    "CrossAccountRoleName": {
+      "Type": "String",
+      "Description": "Lambda Satellite IAM Role name"
+    }
+  },
   "Transform": [
     $(jq '.CFNZonesTransformMacro' static_parameters.json)
   ]
@@ -35,8 +41,11 @@ aws --profile "wex-$profile" --region "$region" \
     --stack-name "$stack_name" --template-body "file://$json" \
     --tags "$(retrieve_tags)" \
     --capabilities CAPABILITY_AUTO_EXPAND \
-    --on-failure DO_NOTHING \
     --parameters "[
+        {
+            \"ParameterKey\": \"CrossAccountRoleName\",
+            \"ParameterValue\": \"$role_satellite\"
+        },
         {
             \"ParameterKey\": \"Lob\",
             \"ParameterValue\": \"$wex_lob\"

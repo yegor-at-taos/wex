@@ -2,7 +2,6 @@
 import boto3
 import logging
 import re
-import traceback
 
 import utilities
 
@@ -13,24 +12,18 @@ logger.setLevel(logging.DEBUG)
 def handler(event, context):
     logger.debug(f'Running AutoAssociate: {event}')
 
-    print(event)
-
     try:
         if event['RequestType'] in ['Create', 'Update']:
-            logger.debug('Processing Create')
+            logger.debug(f'Processing: {event["RequestType"]}')
             sync_remote_associations(event, context)
 
-        elif event['RequestType'] == 'Delete':
-            logger.debug('Processing Delete; NOOP')
-
         else:
-            logger.debug(f'Processing other: {event["RequestType"]}; NOOP')
+            logger.debug(f'Processing: {event["RequestType"]}; NOOP')
 
-        utilities.send_response('SUCCESS', event, context, dict())
+        utilities.send_response('SUCCESS', 'OK', event, context)
 
     except Exception as e:
-        logger.error(f'{e}: {event} {traceback.format_exc()}')
-        utilities.send_response('FAILURE', event, context, dict())
+        utilities.send_response('FAILED', f'{e}', event, context)
 
 
 def generate_access_token(event, context):
@@ -91,16 +84,29 @@ def sync_remote_associations(event, context):
         ])
     logger.debug(f'remote has: {have}')
 
-    # create missing
+    # create missing; format error nicely as this happens often
     for pair in need - have:
         logger.debug(f'Creating: {pair}')
-        utilities.boto3_call('associate_resolver_rule',
-                             request={
-                                 'VPCId': pair[0],
-                                 'ResolverRuleId': pair[1],
-                                 'Name': 'Do not remove manually',
-                                 },
-                             access_token=access_token)
+        try:
+            utilities.boto3_call('associate_resolver_rule',
+                                 request={
+                                     'VPCId': pair[0],
+                                     'ResolverRuleId': pair[1],
+                                     'Name': 'Do not remove manually',
+                                     },
+                                 access_token=access_token)
+        except Exception as e:
+            account = re.sub('^arn:aws:iam::(\\d+):.*', '\\1',
+                             event['ResourceProperties']['RoleARN'])
+            domain = [
+                    rr['DomainName']
+                    for rr
+                    in utilities.boto3_call('list_resolver_rules')
+                    if rr['Id'] == pair[1]
+                    ]
+            raise RuntimeError(f'{account}: failed to associate RR {pair[1]}'
+                               f' {domain}'
+                               f' to the VPN {pair[0]} : {e}') from e
 
     # remove extra
     for pair in have - need:

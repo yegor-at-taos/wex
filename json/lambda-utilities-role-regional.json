@@ -36,7 +36,9 @@
                     "logs:*",
                     "cloudformation:*",
                     "sts:AssumeRole",
-                    "ram:ListResources"
+                    "ram:ListResources",
+                    "route53resolver:ListResolverRules",
+                    "route53resolver:ListResolverEndpointIpAddresses"
                   ],
                   "Resource": "*"
                 }

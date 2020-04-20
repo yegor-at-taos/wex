@@ -50,6 +50,10 @@ boto3_map = {
             'route53resolver',
             'IpAddresses',
             ),
+        'list_resolver_rules': (
+            'route53resolver',
+            'ResolverRules'
+            ),
         'list_resources': (
             'ram',
             'resources',
@@ -115,7 +119,7 @@ def prefix_stack_name(value):
             }
 
 
-def send_response(status, event, context, data):
+def send_response(status, reason, event, context):
     headers = {
         "Content-Type": ""
     }
@@ -134,8 +138,9 @@ def send_response(status, event, context, data):
         "StackId": event["StackId"],
         "RequestId": event["RequestId"],
         "LogicalResourceId": event["LogicalResourceId"],
-        "Data": data
     }
+    if status != 'SUCCESS':
+        request_body['Reason'] = reason
 
     http = urllib3.PoolManager()
 

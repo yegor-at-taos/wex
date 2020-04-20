@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-import boto3
 import re
 import traceback
 
@@ -28,26 +27,10 @@ def count_exported_subnets(event, context):
 
     count = 0
 
-    cfn = boto3.client('cloudformation')
-
-    request_exports = {
-            }
-
-    while True:
-        response_exports = cfn.list_exports(**request_exports)
-
-        for export in response_exports['Exports']:
-            s = re.match(m, export['Name'])
-            if not s:
-                continue
-            subnet = int(s.group(1))
-            if subnet > count:
-                count = subnet
-
-        if 'NextToken' not in response_exports:
-            break
-        else:
-            request_exports['NextToken'] = response_exports['NextToken']
+    exports = utilities.boto3_call('list_exports')
+    for export in exports:
+        if re.match(m, export['Name']):
+            count += 1
 
     return min(count, int(event['templateParameterValues']['MaxIpAddresses']))
 
@@ -195,7 +178,7 @@ def create_template(event, context):
             }
 
     return {
-            'requestId': event['requestId'],
             'status': 'SUCCESS',
+            'requestId': event['requestId'],
             'fragment': event['fragment']
             }

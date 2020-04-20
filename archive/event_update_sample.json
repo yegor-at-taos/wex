@@ -1,0 +1,42 @@
+{
+  "RequestType": "Update",
+  "ServiceToken": "arn:aws:lambda:us-east-1:229349022034:function:CFNAutoAssociate",
+  "ResponseURL": "https://cloudformation-custom-resource-response-useast1.s3.amazonaws.com/arn%3Aaws%3Acloudformation%3Aus-east-1%3A229349022034%3Astack/custodian-dev-ue1-cfn-r53-onpremzones-stk/1e17b350-826c-11ea-9aae-0e194195a24f%7CcrOnPremZonesAutoAssociate1648481c0bfacb9f4%7C3403515d-3317-4d82-981c-9c8dadd5e43f?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Date=20200419T183753Z&X-Amz-SignedHeaders=host&X-Amz-Expires=7200&X-Amz-Credential=AKIA6L7Q4OWTROUDBTSZ%2F20200419%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Signature=63f6130adaadd6c00d2e98b4fa43fbf84ded3ceb2f576b49d4ef7f5be6a35b5a",
+  "StackId": "arn:aws:cloudformation:us-east-1:229349022034:stack/custodian-dev-ue1-cfn-r53-onpremzones-stk/1e17b350-826c-11ea-9aae-0e194195a24f",
+  "RequestId": "3403515d-3317-4d82-981c-9c8dadd5e43f",
+  "LogicalResourceId": "crOnPremZonesAutoAssociate1648481c0bfacb9f4",
+  "PhysicalResourceId": "customResourceaeb2ddcfc5e23cc11",
+  "ResourceType": "AWS::CloudFormation::CustomResource",
+  "ResourceProperties": {
+    "ServiceToken": "arn:aws:lambda:us-east-1:229349022034:function:CFNAutoAssociate",
+    "ShareId": "arn:aws:route53resolver:us-east-1:229349022034:resolver-rule/rslvr-rr-c86ff097fd624df58",
+    "LastUpdated": "2020-04-19T18:37:46.333762",
+    "RoleARN": "WexCloudFormationCrossAccountRole",
+    "Principal": "198895985159",
+    "VpcDni": [
+      "vpc-f1fd038b",
+      "vpc-a3c862d8",
+      "vpc-09a19836bf9021589",
+      "vpc-06b996dce1435b84f",
+      "vpc-031ff4f77b6ebb344",
+      "vpc-0c2bdf2c0525781be",
+      "vpc-0293da132bd06d378"
+    ]
+  },
+  "OldResourceProperties": {
+    "ServiceToken": "arn:aws:lambda:us-east-1:229349022034:function:CFNAutoAssociate",
+    "ShareId": "arn:aws:route53resolver:us-east-1:229349022034:resolver-rule/rslvr-rr-c86ff097fd624df58",
+    "LastUpdated": "2020-04-19T18:35:45.632318",
+    "RoleARN": "WexCloudFormationCrossAccountRole",
+    "Principal": "198895985159",
+    "VpcDni": [
+      "vpc-f1fd038b",
+      "vpc-a3c862d8",
+      "vpc-09a19836bf9021589",
+      "vpc-06b996dce1435b84f",
+      "vpc-031ff4f77b6ebb344",
+      "vpc-0c2bdf2c0525781be",
+      "vpc-0293da132bd06d378"
+    ]
+  }
+}

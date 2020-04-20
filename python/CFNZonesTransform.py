@@ -230,7 +230,6 @@ def create_template(event, context):
                                 ],
                             ],
                         },
-                    'Principal': principal,
                     'ShareArn': utilities.fn_get_att(share_id, 'Arn'),
                     'LastUpdated': datetime.isoformat(datetime.now()),
                     },
