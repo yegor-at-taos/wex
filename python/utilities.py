@@ -34,21 +34,33 @@ exported = {
 }
 
 boto3_map = {
-        'exports': (
+        'list_exports': (
             'cloudformation',
             'Exports',
             ),
-        'resolver_rule_associations': (
+        'list_stack_resources': (
+            'cloudformation',
+            'StackResourceSummaries',
+            ),
+        'list_resolver_rule_associations': (
             'route53resolver',
             'ResolverRuleAssociations',
             ),
-        'resolver_endpoint_ip_addresses': (
+        'list_resolver_endpoint_ip_addresses': (
             'route53resolver',
             'IpAddresses',
             ),
-        'stack_resources': (
-            'cloudformation',
-            'StackResourceSummaries',
+        'list_resources': (
+            'ram',
+            'resources',
+            ),
+        'associate_resolver_rule': (
+            'route53resolver',
+            'ResolverRuleAssociation'
+            ),
+        'disassociate_resolver_rule': (
+            'route53resolver',
+            'ResolverRuleAssociation'
             ),
         }
 
@@ -141,23 +153,34 @@ def send_response(status, event, context, data):
     logger.debug(f"Response status code: {response.status}")
 
 
-def boto3_list(method, access_token=dict(), request=dict()):
+def boto3_call(method, access_token=dict(), request=dict()):
+    variations = ['NextToken', 'nextToken']
+
     client = boto3.client(boto3_map[method][0], **access_token)
 
     value = list()
 
+    for variation in variations:
+        if variation in request:
+            del request[variation]
+
     while True:
-        response = getattr(client, f'list_{method}')(**request)
+        response = getattr(client, method)(**request)
 
         value += response[boto3_map[method][1]]
 
-        if 'NextToken' not in response:
-            break
-        else:
-            request['NextToken'] = response['NextToken']
+        next_token = None
 
-    if 'NextToken' in request:
-        del request['NextToken']
+        # RAM provides 'nextToken' and expects the same back
+        for variation in variations:
+            if variation in response:
+                next_token = variation
+                break
+
+        if not next_token:
+            break
+
+        request[next_token] = response[next_token]
 
     return value
 

@@ -1,28 +1,30 @@
 #!/usr/bin/python3
 import boto3
 import logging
+import re
 import traceback
 
 import utilities
 
 logger = logging.getLogger()
-logger.setLevel(logging.INFO)
+logger.setLevel(logging.DEBUG)
 
 
 def handler(event, context):
-    logger.info(f'Running AutoAssociate: {event}')
+    logger.debug(f'Running AutoAssociate: {event}')
+
+    print(event)
 
     try:
-        if event['RequestType'] == 'Create':
-            logger.info('Processing Create')
-
-            associate_rule_to_the_vpc(event, context)
+        if event['RequestType'] in ['Create', 'Update']:
+            logger.debug('Processing Create')
+            sync_remote_associations(event, context)
 
         elif event['RequestType'] == 'Delete':
-            logger.info('Processing Delete; NOOP')
+            logger.debug('Processing Delete; NOOP')
 
         else:
-            logger.info(f'Processing other: {event["RequestType"]}; NOOP')
+            logger.debug(f'Processing other: {event["RequestType"]}; NOOP')
 
         utilities.send_response('SUCCESS', event, context, dict())
 
@@ -33,15 +35,11 @@ def handler(event, context):
 
 def generate_access_token(event, context):
     role_arn = {
-            'RoleArn': 'arn:aws:iam::'
-                       f'{event["ResourceProperties"]["Principal"]}:role/'
-                       f'{event["ResourceProperties"]["RoleARN"]}',
+            'RoleArn': event['ResourceProperties']['RoleARN'],
             'RoleSessionName': 'cross_account_lambda'
             }
-    logger.info(f'Using remote role ARN: {role_arn}')
 
-    client = boto3.client('sts')
-    peer = client.assume_role(**role_arn)['Credentials']
+    peer = boto3.client('sts').assume_role(**role_arn)['Credentials']
 
     return {
             'aws_access_key_id': peer['AccessKeyId'],
@@ -50,36 +48,66 @@ def generate_access_token(event, context):
             }
 
 
-def associate_rule_to_the_vpc(event, context):
+def sync_remote_associations(event, context):
     access_token = generate_access_token(event, context)
-    huginn = boto3.client('cloudformation', **access_token)
-    muninn = boto3.client('route53resolver', **access_token)
 
-    request_exports = {
-            }
+    local_exported_rules = set([
+        re.sub('^.*\\/', '', resource['arn'])
+        for resource
+        in utilities.boto3_call('list_resources',
+                                request={
+                                    'resourceOwner': 'SELF'
+                                    })
+        if resource['resourceShareArn']
+        == event['ResourceProperties']['ShareArn']
+        and resource['type']
+        == 'route53resolver:ResolverRule'
+        ])
 
-    while True:
-        response_exports = huginn.list_exports(**request_exports)
+    remote_exported_vpcs = set([
+        export['Value']
+        for export
+        in utilities.boto3_call('list_exports',
+                                access_token=access_token)
+        if utilities.is_exported_vpc(export)
+        ])
 
-        for export in response_exports['Exports']:
-            name, value = export['Name'], export['Value']
+    # `need`: associations we should have
+    need = set()
+    for vpc in remote_exported_vpcs - \
+            set(event['ResourceProperties']['VpcDni']):
+        for rule_id in local_exported_rules:
+            need.add((vpc, rule_id))
+    logger.debug(f'{need}')
 
-            if not name.endswith('-vpc-stk-Vpc-Id'):
-                continue
+    # `have`: associations we actually have
+    have = set([
+        (association['VPCId'], association['ResolverRuleId'])
+        for association
+        in utilities.boto3_call('list_resolver_rule_associations',
+                                access_token=access_token)
+        if association['ResolverRuleId'] in local_exported_rules
+        and association['Status'] == 'COMPLETE'
+        ])
+    logger.debug(f'{have}')
 
-            if value in event['ResourceProperties']['VpcDni']:
-                continue
+    # create missing
+    for pair in need - have:
+        logger.debug(f'Creating: {pair}')
+        utilities.boto3_call('associate_resolver_rule',
+                             request={
+                                 'VPCId': pair[0],
+                                 'ResolverRuleId': pair[1],
+                                 'Name': 'CFN-created; do not remove manually',
+                                 },
+                             access_token=access_token)
 
-            request = {
-                    'ResolverRuleId': event['ResourceProperties']['RuleId'],
-                    'VPCId': value,
-                    }
-            logger.info(f'Attempting association: {value}'
-                        f' -> {event["ResourceProperties"]["RuleId"]}')
-            response = muninn.associate_resolver_rule(**request)
-            logger.info(f'; got: {response}')
-
-        if 'NextToken' not in response_exports:
-            break
-        else:
-            request_exports['NextToken'] = response_exports['NextToken']
+    # remove extra
+    for pair in have - need:
+        logger.debug(f'Removing: {pair}')
+        utilities.boto3_call('disassociate_resolver_rule',
+                             request={
+                                 'VPCId': pair[0],
+                                 'ResolverRuleId': pair[1],
+                                 },
+                             access_token=access_token)

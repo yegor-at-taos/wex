@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-import boto3
 from copy import deepcopy
+from datetime import datetime
 import logging
 import re
 import traceback
@@ -8,16 +8,12 @@ import utilities
 
 
 logger = logging.getLogger()
-logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.INFO)
 
 
 def handler(event, context):
     try:
-        value = create_template(deepcopy(event), context)
-
-        sync_remote_associations(event, value, context)
-
-        return value
+        return create_template(event, context)
 
     except Exception as e:
         return {
@@ -28,65 +24,13 @@ def handler(event, context):
                 }
 
 
-def sync_remote_resource(resource, original, processed, context):
-    return
-
-
-def sync_remote_associations(original, processed, context):
-    # This kind of duplicates the functionality of AutoAssociate but
-    # only for existing objects as AutoAssociate is not get called for them.
-    # Also, unlike AutoAssociate it does disassociate in case VPC got
-    # added to the DNI list.
-    wex = original['fragment']['Mappings']['Wex']
-
-    resources = utilities.boto3_list('stack_resources',
-                                     dict(),
-                                     {
-                                         'StackName': wex['StackName']
-                                         }
-                                     )
-    print(resources)
-
-    # AWS::CloudFormation::CustomResource is a resource used for cross-account
-    # link; however, only process cross-account resources in the 'processed'
-    # template. Assuming that if resource is going away then rule share is
-    # also going away and will be gone (and disassociated automatically).
-    for resource_name, resource in processed['fragment']['Resources'].items():
-        if resource['Type'] != 'AWS::CloudFormation::CustomResource':
-            continue
-
-        if not isinstance(resource['Properties']['RoleARN'], dict) or \
-                resource['Properties']['RoleARN'].keys() != set(['Ref']) or \
-                not isinstance(resource['Properties']['RoleARN']['Ref'], str):
-            raise ValueError('RoleARN must be a Ref')
-
-        role_arn = original["templateParameterValues"][
-                resource["Properties"]["RoleARN"]["Ref"]
-                ]
-        role_arn = {
-                'RoleArn': 'arn:aws:iam::'
-                           f'{resource["Properties"]["Principal"]}:role/'
-                           f'{role_arn}',
-                'RoleSessionName': 'cross_account_lambda'
-                }
-
-        peer = boto3.client('sts').assume_role(**role_arn)['Credentials']
-
-        access_token = {
-                'aws_access_key_id': peer['AccessKeyId'],
-                'aws_secret_access_key': peer['SecretAccessKey'],
-                'aws_session_token': peer['SessionToken'],
-                }
-        print(access_token)
-
-
 def retrieve_cfn_export(event, wex, export):
     # Generate template import statement, however use generated value to
     # resolve endpoint addresses via route53resolver
     export_name = utilities.import_value(event, wex, export)
     export_name = export_name['Fn::ImportValue']
 
-    for export in utilities.boto3_list('exports'):
+    for export in utilities.boto3_call('list_exports'):
         if export['Name'] == export_name:
             return export['Value']
 
@@ -102,7 +46,7 @@ def retrieve_inbound_ips(event, wex):
                 'Port': '53',
                 }
             for ip
-            in utilities.boto3_list('resolver_endpoint_ip_addresses',
+            in utilities.boto3_call('list_resolver_endpoint_ip_addresses',
                                     request={
                                         'ResolverEndpointId': endpoint_id,
                                         }
@@ -190,7 +134,7 @@ def create_template(event, context):
         # Associate to all locally exported VPCs (except the ones listed
         # in the DNI section).
         if kind == 'OnPremZones':
-            for export in utilities.boto3_list('exports'):
+            for export in utilities.boto3_call('list_exports'):
                 if not utilities.is_exported_vpc(export):
                     continue
                 if 'VpcDni' in data and \
@@ -246,45 +190,54 @@ def create_template(event, context):
                     },
                 }
 
-    # Create one auto-association object per rule
-    # NOTE: rule_id s the same across the accounts. However,
-    # AWS documentation does not formally guarantee this.
+    # Do not remove 'LastUpdated'; it forces service Lambda to run on update
+    # NOTE: rule_id s the same across the accounts.
+    # However, AWS documentation does not formally guarantee that.
     for principal in principals:
-        for rule_id in shared:
-            auto_associate_id = utilities.mk_id(
-                    [
-                        f'cr{kind}AutoAssociate',
-                        region,
-                        principal,
-                        rule_id,
-                        ]
-                    )
+        auto_associate_id = utilities.mk_id(
+                [
+                    f'cr{kind}AutoAssociate',
+                    region,
+                    principal,
+                    ]
+                )
 
-            logger.debug(f'Auto-association id for {principal}/{rule_id}:'
-                         f'{auto_associate_id}')
-
-            resources[auto_associate_id] = {
-                    'Type': 'AWS::CloudFormation::CustomResource',
-                    'Properties': {
-                        'ServiceToken':
-                            utilities.import_value(
-                                event,
-                                wex,
-                                'auto_associate_function'
-                                ),
-                        'VpcDni': data['VpcDni'],
-                        'RoleARN': {
-                            'Ref': 'CrossAccountRoleName'
-                            },
-                        'Principal': principal,
-                        'RuleId': utilities.fn_get_att(rule_id,
-                                                       'ResolverRuleId'),
+        resources[auto_associate_id] = {
+                'Type': 'AWS::CloudFormation::CustomResource',
+                'Properties': {
+                    'ServiceToken':
+                        utilities.import_value(
+                            event,
+                            wex,
+                            'auto_associate_function'
+                            ),
+                    'VpcDni': data['VpcDni'],
+                    'RoleARN': {
+                        'Fn::Join': [
+                            ':', [
+                                'arn:aws:iam:',
+                                principal,
+                                {
+                                    'Fn::Join': [
+                                        '/', [
+                                            'role',
+                                            {
+                                                'Ref': 'CrossAccountRoleName',
+                                                },
+                                            ],
+                                        ],
+                                    },
+                                ],
+                            ],
                         },
-                    'DependsOn': [
-                        share_id,
-                        rule_id
-                        ]
-                    }
+                    'Principal': principal,
+                    'ShareArn': utilities.fn_get_att(share_id, 'Arn'),
+                    'LastUpdated': datetime.isoformat(datetime.now()),
+                    },
+                'DependsOn': [
+                    share_id,
+                    ]
+                }
 
     return {
             'requestId': event['requestId'],
