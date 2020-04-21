@@ -20,8 +20,8 @@ cat > "$fragment" <<EOF
   "Mappings": {
     "Wex": {
       "Tags": $(retrieve_tags),
-      "$kind": $(jq .Mappings.Wex.$kind),
-      "Accounts": $(jq .Mappings.Wex.Accounts)
+      "$kind": $(jq .$kind static_parameters.json),
+      "Accounts": $(jq .Accounts static_parameters.json)
     }
   },
   "Parameters": {

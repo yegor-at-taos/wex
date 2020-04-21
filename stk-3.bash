@@ -19,7 +19,7 @@ Output parameters:
 EOF
 
 stack_name="$account_name-$short_region-cfn-lambda-utilities-stk"
-bucket="$account_name-$(jq -r '.S3BucketName' static_parameters.json)"
+bucket="$(jq -r '.S3BucketName' static_parameters.json)"
 
 json=$(remove_on_exit --suffix='.json')
 
@@ -151,7 +151,7 @@ for script in $(ls python); do  # note that 'noglob' is ON
         "FunctionName": "$function",
         "Handler": "$function.handler",
         "Runtime": "python3.7",
-        "Timeout": "5",
+        "Timeout": "300",
         "Role": $(fragment_iam_role),
         "Tags": $(retrieve_tags)
       }

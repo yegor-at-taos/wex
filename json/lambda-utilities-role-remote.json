@@ -36,6 +36,7 @@
                       "cloudformation:ListExports",
                       "route53resolver:AssociateResolverRule",
                       "route53resolver:ListResolverRuleAssociations",
+                      "route53resolver:ListResolverRules",
                       "ec2:DescribeVpcs"
                   ],
                   "Resource": "*"

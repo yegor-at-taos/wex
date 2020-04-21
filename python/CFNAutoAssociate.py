@@ -80,14 +80,35 @@ def sync_remote_associations(event, context):
         in utilities.boto3_call('list_resolver_rule_associations',
                                 access_token=access_token)
         if association['ResolverRuleId'] in local_exported_rules
-        and association['Status'] == 'COMPLETE'
         ])
     logger.debug(f'remote has: {have}')
 
+    remote_rules = [
+            remote_rule['Id']
+            for remote_rule
+            in utilities.boto3_call('list_resolver_rules',
+                                    access_token=access_token)
+            ]
+    logger.debug(f'=== {remote_rules} ===')
+
     # create missing; format error nicely as this happens often
+    remote_rules = list()
     for pair in need - have:
-        logger.debug(f'Creating: {pair}')
+        logger.debug(f'>>> Creating: {pair} <<<')
         try:
+            for _ in range(3):
+                if pair[1] in remote_rules:
+                    logger.debug('=== Found! ===')
+                    break
+                logger.debug(f'=== Not found: {pair[1]} (retrying) ===')
+                remote_rules = [
+                        remote_rule['Id']
+                        for remote_rule
+                        in utilities.boto3_call('list_resolver_rules',
+                                                access_token=access_token)
+                        ]
+
+            # ready or not - attempt to associate; raises on error
             utilities.boto3_call('associate_resolver_rule',
                                  request={
                                      'VPCId': pair[0],
@@ -106,7 +127,7 @@ def sync_remote_associations(event, context):
                     ]
             raise RuntimeError(f'{account}: failed to associate RR {pair[1]}'
                                f' {domain}'
-                               f' to the VPN {pair[0]} : {e}') from e
+                               f' to the VPC {pair[0]} : {e}') from e
 
     # remove extra
     for pair in have - need:
