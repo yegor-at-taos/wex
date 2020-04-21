@@ -28,6 +28,11 @@ cat > "$fragment" <<EOF
     "CrossAccountRoleName": {
       "Type": "String",
       "Description": "Lambda Satellite IAM Role name"
+    },
+    "MaxRulesPerShare": {
+      "Type": "Number",
+      "Description": "Limit RuleId count per RAM Share",
+      "Default": "10"
     }
   },
   "Transform": [

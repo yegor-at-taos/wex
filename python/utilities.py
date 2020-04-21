@@ -6,6 +6,9 @@ import logging
 import re
 import urllib3
 
+from random import uniform
+from time import sleep
+
 exported = {
         'endpoint_inbound': (
             'cfn-endpoints',
@@ -161,6 +164,7 @@ def send_response(status, reason, event, context):
 def boto3_call(method, access_token=dict(), request=dict()):
     variations = ['NextToken', 'nextToken']
 
+    sleep(uniform(1, 3))
     client = boto3.client(boto3_map[method][0], **access_token)
 
     value = list()
@@ -170,6 +174,7 @@ def boto3_call(method, access_token=dict(), request=dict()):
             del request[variation]
 
     while True:
+        sleep(uniform(1, 3))
         response = getattr(client, method)(**request)
 
         value += response[boto3_map[method][1]]

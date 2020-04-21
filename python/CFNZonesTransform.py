@@ -63,7 +63,7 @@ def create_template(event, context):
     '''
     Assuming the correct template; do not attempt to recover.
     '''
-    region, shared = event['region'], list()
+    region, rules = event['region'], list()
 
     wex = event['fragment']['Mappings'].pop('Wex')
 
@@ -107,7 +107,7 @@ def create_template(event, context):
                     ]
                 )
 
-        shared.append(rule_id)  # always share generated rules
+        rules.append(rule_id)  # always share generated rules
 
         resources[rule_id] = {
                 'Type': 'AWS::Route53Resolver::ResolverRule',
@@ -162,24 +162,29 @@ def create_template(event, context):
     # Share created ResolverRule(s) to all principals (except self)
     principals = set(wex['Accounts']) - set([event['accountId']])
 
-    # Per Naidu: create just one ResourceShare object for everything
-    if shared:
+    rules_slot = 0
+    rules_max = int(event['templateParameterValues']['MaxRulesPerShare'])
+    rules_sorted = sorted(rules)
+    while rules_slot < len(rules_sorted):
         share_id = utilities.mk_id(
                 [
                     f'rs{kind}ResourceShare',
                     region,
+                    f'{rules_slot}',
                     ]
                 )
+
+        resource_arns = [
+                utilities.fn_get_att(rule_id, 'Arn')
+                for rule_id
+                in rules_sorted[rules_slot:rules_slot + rules_max]
+                ]
 
         resources[share_id] = {
                 'Type': 'AWS::RAM::ResourceShare',
                 'Properties': {
-                    'Name': f'Wex-{kind}-Zones-Share',
-                    'ResourceArns': [
-                            utilities.fn_get_att(shared_id, 'Arn')
-                            for shared_id
-                            in shared
-                            ],
+                    'Name': f'Wex-{kind}-Zones-Share-{rules_slot}',
+                    'ResourceArns': resource_arns,
                     'Principals': list(principals),
                     'Tags': wex['Tags'] + [
                         {
@@ -190,53 +195,56 @@ def create_template(event, context):
                     },
                 }
 
-    # Do not remove 'LastUpdated'; it forces service Lambda to run on update
-    # NOTE: rule_id s the same across the accounts.
-    # However, AWS documentation does not formally guarantee that.
-    for principal in principals:
-        auto_associate_id = utilities.mk_id(
-                [
-                    f'cr{kind}AutoAssociate',
-                    region,
-                    principal,
-                    ]
-                )
+        # Do not remove 'LastUpdated'; it's required to trigger Lambda
+        # NOTE: rule_id s the same across the accounts.
+        # However, AWS documentation does not formally guarantee that.
+        for principal in principals:
+            auto_associate_id = utilities.mk_id(
+                    [
+                        f'cr{kind}AutoAssociate',
+                        region,
+                        principal,
+                        f'{rules_slot}',
+                        ]
+                    )
 
-        resources[auto_associate_id] = {
-                'Type': 'AWS::CloudFormation::CustomResource',
-                'Properties': {
-                    'ServiceToken':
-                        utilities.import_value(
-                            event,
-                            wex,
-                            'auto_associate_function'
-                            ),
-                    'VpcDni': data['VpcDni'],
-                    'RoleARN': {
-                        'Fn::Join': [
-                            ':', [
-                                'arn:aws:iam:',
-                                principal,
-                                {
-                                    'Fn::Join': [
-                                        '/', [
-                                            'role',
-                                            {
-                                                'Ref': 'CrossAccountRoleName',
-                                                },
+            resources[auto_associate_id] = {
+                    'Type': 'AWS::CloudFormation::CustomResource',
+                    'Properties': {
+                        'ServiceToken':
+                            utilities.import_value(
+                                event,
+                                wex,
+                                'auto_associate_function'
+                                ),
+                        'VpcDni': data['VpcDni'],
+                        'RoleARN': {
+                            'Fn::Join': [
+                                ':', [
+                                    'arn:aws:iam:',
+                                    principal,
+                                    {
+                                        'Fn::Join': [
+                                            '/', [
+                                                'role',
+                                                {
+                                                    'Ref':
+                                                    'CrossAccountRoleName',
+                                                    },
+                                                ],
                                             ],
-                                        ],
-                                    },
+                                        },
+                                    ],
                                 ],
-                            ],
+                            },
+                        'ShareArn': utilities.fn_get_att(share_id, 'Arn'),
+                        'LastUpdated': datetime.isoformat(datetime.now()),
                         },
-                    'ShareArn': utilities.fn_get_att(share_id, 'Arn'),
-                    'LastUpdated': datetime.isoformat(datetime.now()),
-                    },
-                'DependsOn': [
-                    share_id,
-                    ]
-                }
+                    'DependsOn': [
+                        share_id,
+                        ]
+                    }
+        rules_slot += rules_max
 
     return {
             'requestId': event['requestId'],
