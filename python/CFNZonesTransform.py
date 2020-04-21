@@ -93,15 +93,20 @@ def create_template(event, context):
     else:
         raise RuntimeError(f'Transform type {kind} is invalid')
 
+    target_env = event['templateParameterValues']['TargetEnvironment'].lower()
+
     resources = dict()
     event['fragment']['Resources'] = resources
 
     for zone in wex[kind]:
-        zone_name = re.sub('_$', '', re.sub('\\.', '_', zone.strip()))
+        zone_name = re.sub('_$', '',
+                           re.sub('\\.', '_',
+                                  zone.strip() + target_env))
 
         rule_id = utilities.mk_id(
                 [
                     f'rr{kind}Zone',
+                    target_env,
                     zone,
                     region,
                     ]
@@ -143,6 +148,7 @@ def create_template(event, context):
                 rule_assoc_id = utilities.mk_id(
                         [
                             f'ra{kind}ZoneAssoc',
+                            target_env,
                             zone,
                             region,
                             ]
@@ -169,6 +175,7 @@ def create_template(event, context):
         share_id = utilities.mk_id(
                 [
                     f'rs{kind}ResourceShare',
+                    target_env,
                     region,
                     f'{rules_slot}',
                     ]
@@ -180,16 +187,19 @@ def create_template(event, context):
                 in rules_sorted[rules_slot:rules_slot + rules_max]
                 ]
 
+        friendly_name = f'wex-{kind}-zones-share-{target_env}-{rules_slot}'
+        friendly_name = friendly_name.lower()  # make sure it's lowercase
+
         resources[share_id] = {
                 'Type': 'AWS::RAM::ResourceShare',
                 'Properties': {
-                    'Name': f'Wex-{kind}-Zones-Share-{rules_slot}',
+                    'Name': friendly_name,
                     'ResourceArns': resource_arns,
                     'Principals': list(principals),
                     'Tags': wex['Tags'] + [
                         {
                             'Key': 'Name',
-                            'Value': f'Wex-{kind}-Zones-Share',
+                            'Value': friendly_name,
                             },
                         ],
                     },
@@ -202,6 +212,7 @@ def create_template(event, context):
             auto_associate_id = utilities.mk_id(
                     [
                         f'cr{kind}AutoAssociate',
+                        target_env,
                         region,
                         principal,
                         f'{rules_slot}',

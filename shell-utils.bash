@@ -75,10 +75,22 @@ account_name() {
 }
 
 retrieve_tags() {
+    fragment=$(remove_on_exit --suffix=.json)
+    combined=$(remove_on_exit --suffix=.json)
+
     jq "[ .Mappings.Wex.Tags[] |
         select(.Key == \"Lob\").Value = \"$wex_lob\" |
         select(.Key == \"Environment\").Value = \"$wex_environment\"
-            ]" "$json_template"
+            ]" "$json_template" > "$combined"
+
+    if [[ -v target_environment ]]; then
+        jq ".+= [{ \"Key\": \"TargetEnvironment\",
+                   \"Value\": \"$target_environment\" }]" \
+                       "$combined" > "$fragment"
+        mv "$fragment" "$combined"
+    fi
+
+    cat "$combined"
 }
 
 fn_join() {
@@ -120,10 +132,15 @@ while (( $# )); do
             readonly lambda_version="$2"
             shift 2
             ;;
+        -t|--target-environment)
+            readonly target_environment="$2"
+            shift 2
+            ;;
         *)
             echo "Usage: $0 -a|--aws-account account"
             echo "          -r|--region region"
-            echo "          -l|--lambda-version version"
+            echo "          -l|--lambda-version version (eg. v01)"
+            echo "          -t|--target-environment tag (eg. prod)"
             exit 1
             ;;
     esac

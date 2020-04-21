@@ -4,12 +4,12 @@
 
 declare -r kind='OnPremZones'
 
-stack_name="$account_name-$short_region-cfn-r53-$(tr '[:upper:]' '[:lower:]' \
-    <<< $kind)-stk"
+stack_name="$account_name-$target_environment-$short_region-cfn-r53-$( \
+    tr '[:upper:]' '[:lower:]' <<< $kind)-stk"
 
 json=$(remove_on_exit --suffix='.json')
 
-./csv-audit.py --generate "$kind" --region "$region" > "$json"
+cp 'json/cloudformation-template.json' "$json"
 
 fragment=$(remove_on_exit --suffix=.json)
 combined=$(remove_on_exit --suffix=.json)
@@ -29,10 +29,14 @@ cat > "$fragment" <<EOF
       "Type": "String",
       "Description": "Lambda Satellite IAM Role name"
     },
+    "TargetEnvironment": {
+      "Type": "String",
+      "Description": "Wex Target Environment; stack tag"
+    },
     "MaxRulesPerShare": {
       "Type": "Number",
       "Description": "Limit RuleId count per RAM Share",
-      "Default": "10"
+      "Default": "15"
     }
   },
   "Transform": [
@@ -40,8 +44,13 @@ cat > "$fragment" <<EOF
   ]
 }
 EOF
-jq -n 'reduce inputs as $i ({}; . * $i)' "$json" "$fragment" > "$combined"
-mv "$combined" "$json"
+jq -n 'reduce inputs as $i ({}; . * $i)' \
+    "$json" "$fragment" > "$combined"
+
+
+jq ".Mappings.Wex.Infoblox.Regions |=
+    with_entries(select(.key|test(\"default|$region\")))" \
+        "$combined" > "$json"
 
 aws --profile "wex-$profile" --region "$region" \
     cloudformation "$(create_or_update "$stack_name")-stack" \
@@ -60,6 +69,10 @@ aws --profile "wex-$profile" --region "$region" \
         {
             \"ParameterKey\": \"Environment\",
             \"ParameterValue\": \"$wex_environment\"
+        },
+        {
+            \"ParameterKey\": \"TargetEnvironment\",
+            \"ParameterValue\": \"$target_environment\"
         },
         {
             \"ParameterKey\": \"Instantiate\",
