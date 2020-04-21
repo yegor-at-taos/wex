@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import argparse
 import re
 import json
 
@@ -34,9 +35,15 @@ class MyHTMLParser(HTMLParser):
         self.flag = False
 
 
+parser = argparse.ArgumentParser()
+parser.add_argument("-f", "--file", type=str,
+                    help="WEX exported CSV",
+                    default="sign-in.html")
+args = parser.parse_args()
+
 parser = MyHTMLParser()
 
-with open('sign-in.html') as f:
+with open(args.file) as f:
     for line in f:
         parser.feed(line)
 
