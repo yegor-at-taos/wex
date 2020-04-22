@@ -10,6 +10,8 @@ import utilities
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
+aws_hash_length = 12
+
 
 def handler(event, context):
     try:
@@ -22,6 +24,46 @@ def handler(event, context):
                 'fragment': event['fragment'],
                 'errorMessage': f'{e}: {event} {traceback.format_exc()}',
                 }
+
+
+def populate_tree(tree, rule_id, pos):
+    if int(rule_id[-4:], 16) & (1 << (aws_hash_length - pos)):
+        tree[1].add(rule_id)
+    else:
+        tree[0].add(rule_id)
+
+
+def rebalance_tree(tree, rebalance_limit, pos):
+    for bit in tree.keys():
+        if len(tree[bit]) < rebalance_limit:
+            continue
+
+        temp = {
+                0: set(),
+                1: set(),
+                }
+
+        for rule_id in tree[bit]:
+            populate_tree(temp, rule_id, pos)
+
+        tree[bit] = dict()
+
+        for k, v in temp.items():
+            if v:
+                tree[bit][k] = v
+
+        rebalance_tree(tree[bit], rebalance_limit, pos + 1)
+
+
+def unroll_tree(tree, out, key, level):
+    for bit in tree.keys():
+        key |= bit << level
+        if isinstance(tree[bit], set):
+            out.append((key, tree[bit]))
+        else:
+            unroll_tree(tree[bit], out, key, level + 1)
+
+    return out
 
 
 def retrieve_cfn_export(event, wex, export):
@@ -63,7 +105,11 @@ def create_template(event, context):
     '''
     Assuming the correct template; do not attempt to recover.
     '''
-    region, rules = event['region'], list()
+    region = event['region']
+    tree = {
+            0: set(),
+            1: set(),
+            }
 
     wex = event['fragment']['Mappings'].pop('Wex')
 
@@ -112,7 +158,7 @@ def create_template(event, context):
                     ]
                 )
 
-        rules.append(rule_id)  # always share generated rules
+        populate_tree(tree, rule_id, 0)
 
         resources[rule_id] = {
                 'Type': 'AWS::Route53Resolver::ResolverRule',
@@ -165,29 +211,30 @@ def create_template(event, context):
                             }
                         }
 
+    rebalance_limit = int(event['templateParameterValues']['MaxRulesPerShare'])
+    rebalance_tree(tree, rebalance_limit, 0)
+
     # Share created ResolverRule(s) to all principals (except self)
     principals = set(wex['Accounts']) - set([event['accountId']])
 
-    rules_slot = 0
-    rules_max = int(event['templateParameterValues']['MaxRulesPerShare'])
-    rules_sorted = sorted(rules)
-    while rules_slot < len(rules_sorted):
+    for bucket in unroll_tree(tree, [], 0, 0):
         share_id = utilities.mk_id(
                 [
                     f'rs{kind}ResourceShare',
                     target_env,
                     region,
-                    f'{rules_slot}',
+                    f'{bucket[0]}',
                     ]
                 )
 
         resource_arns = [
                 utilities.fn_get_att(rule_id, 'Arn')
                 for rule_id
-                in rules_sorted[rules_slot:rules_slot + rules_max]
+                in bucket[1]
                 ]
 
-        friendly_name = f'wex-{kind}-zones-share-{target_env}-{rules_slot}'
+        friendly_name = f'wex-{kind}-zones-share' \
+                        f'-{target_env}-{"%04x" % bucket[0]}'
         friendly_name = friendly_name.lower()  # make sure it's lowercase
 
         resources[share_id] = {
@@ -215,7 +262,7 @@ def create_template(event, context):
                         target_env,
                         region,
                         principal,
-                        f'{rules_slot}',
+                        f'{bucket[0]}',
                         ]
                     )
 
@@ -255,7 +302,6 @@ def create_template(event, context):
                         share_id,
                         ]
                     }
-        rules_slot += rules_max
 
     return {
             'requestId': event['requestId'],
