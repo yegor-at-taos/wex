@@ -5,6 +5,13 @@
   "CFNEndpointsTransformMacro": "CFNEndpointsTransformMacro",
   "CFNZonesTransformMacro": "CFNZonesTransformMacro",
   "AwsZones": [
+    "placeholder000.yegor.gorshkov.private.",
+    "placeholder001.yegor.gorshkov.private.",
+    "placeholder002.yegor.gorshkov.private.",
+    "placeholder003.yegor.gorshkov.private.",
+    "placeholder004.yegor.gorshkov.private.",
+    "placeholder005.yegor.gorshkov.private.",
+    "placeholder006.yegor.gorshkov.private.",
     "wex-ce.com.",
     "prod-internal.wexfleetservice.com.",
     "stg-internal.wexfleetweb.com.",

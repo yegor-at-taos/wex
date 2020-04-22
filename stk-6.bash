@@ -36,7 +36,7 @@ cat > "$fragment" <<EOF
     "MaxRulesPerShare": {
       "Type": "Number",
       "Description": "Limit RuleId count per RAM Share",
-      "Default": "15"
+      "Default": "50"
     }
   },
   "Transform": [

@@ -56,8 +56,12 @@ cat > "$fragment" <<EOF
   }
 }
 EOF
-jq -n 'reduce inputs as $i ({}; . * $i)' "$json" "$fragment" > "$combined"
-mv "$combined" "$json"
+jq -n 'reduce inputs as $i ({}; . * $i)' \
+    "$json" "$fragment" > "$combined"
+
+jq ".Mappings.Wex.Infoblox.Regions |=
+    with_entries(select(.key|test(\"default|$region\")))" \
+        "$combined" > "$json"
 
 # Even though `Instantiate` is a required parameter, it is ignored
 # by this particular stack; use 'Hosted'.
