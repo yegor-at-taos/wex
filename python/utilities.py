@@ -57,9 +57,17 @@ boto3_map = {
             'route53resolver',
             'ResolverRules'
             ),
+        'list_tags_for_resource': (
+            'route53resolver',
+            'Tags'
+            ),
         'list_resources': (
             'ram',
             'resources',
+            ),
+        'get_resource_shares': (
+            'ram',
+            'resourceShares',
             ),
         'associate_resolver_rule': (
             'route53resolver',
@@ -79,7 +87,7 @@ def mk_id(args):
     digest = hashlib.blake2b()
     for arg in args:
         digest.update(bytes(json.dumps(arg), 'utf-8'))
-    return args[0] + digest.hexdigest()[-17:]
+    return args[0] + digest.hexdigest()[-17:].capitalize()
 
 
 def import_value(event, wex, resource, region=None):

@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+from argparse import Namespace
 from copy import deepcopy
 from datetime import datetime
 import logging
@@ -6,11 +7,14 @@ import re
 import traceback
 import utilities
 
+import json
 
-logger = logging.getLogger()
-logger.setLevel(logging.INFO)
 
-aws_hash_length = 12
+logger = logging.getLogger('CFNZonesTransform')
+logger.setLevel(logging.DEBUG)
+ch = logging.StreamHandler()
+ch.setLevel(logging.DEBUG)
+logger.addHandler(ch)
 
 
 def handler(event, context):
@@ -26,44 +30,8 @@ def handler(event, context):
                 }
 
 
-def populate_tree(tree, rule_id, pos):
-    if int(rule_id[-4:], 16) & (1 << (aws_hash_length - pos)):
-        tree[1].add(rule_id)
-    else:
-        tree[0].add(rule_id)
-
-
-def rebalance_tree(tree, rebalance_limit, pos):
-    for bit in tree.keys():
-        if len(tree[bit]) < rebalance_limit:
-            continue
-
-        temp = {
-                0: set(),
-                1: set(),
-                }
-
-        for rule_id in tree[bit]:
-            populate_tree(temp, rule_id, pos)
-
-        tree[bit] = dict()
-
-        for k, v in temp.items():
-            if v:
-                tree[bit][k] = v
-
-        rebalance_tree(tree[bit], rebalance_limit, pos + 1)
-
-
-def unroll_tree(tree, out, key, level):
-    for bit in tree.keys():
-        key |= bit << level
-        if isinstance(tree[bit], set):
-            out.append((key, tree[bit]))
-        else:
-            unroll_tree(tree[bit], out, key, level + 1)
-
-    return out
+def is_local_test(parm):  # TODO: remove
+    return 'LocalTest' in parm.event['templateParameterValues']
 
 
 def retrieve_cfn_export(event, wex, export):
@@ -79,229 +47,420 @@ def retrieve_cfn_export(event, wex, export):
     raise RuntimeError(f'{export_name} not found in CFN exports')
 
 
-def retrieve_inbound_ips(event, wex):
-    endpoint_id = retrieve_cfn_export(event, wex, 'endpoint_inbound')
+def retrieve_logical_id(parm, name, match):
+    if name == 'DomainName':
+        aws_type = 'AWS::Route53Resolver::ResolverRule'
+    else:
+        aws_type = 'AWS::Route53Resolver::ResolverRule'
 
-    value = [
+    for k, v in parm.resources.items():
+        if v['Type'] == aws_type and v['Properties'][name] == match:
+            return k
+    raise ValueError(f'Can\'t find LogicalId for: {name}')
+
+
+def resource_rule(parm, zone):
+    zone_friendly_name = re.sub('\\.', '_', zone + parm.target_env)
+
+    rule_id = utilities.mk_id(
+            [
+                f'rr{parm.kind}Zone',
+                parm.region_name,
+                parm.target_env,
+                zone,
+                ]
+            )
+
+    return (
+            rule_id,
             {
-                'Ip': ip['Ip'],
-                'Port': '53',
+                'Type': 'AWS::Route53Resolver::ResolverRule',
+                'Properties': {
+                    'Name': zone_friendly_name,
+                    'RuleType': 'FORWARD',
+                    'DomainName': zone,
+                    'ResolverEndpointId':
+                    utilities.import_value(
+                        parm.event,
+                        parm.wex,
+                        'endpoint_outbound'
+                        ),
+                    'TargetIps': parm.target_endpoint_ips,
+                    'Tags': parm.wex['Tags'] + [
+                        {
+                            'Key': 'Name',
+                            'Value': zone_friendly_name,
+                            },
+                        {
+                            'Key': 'LogicalId',
+                            'Value': rule_id,
+                            },
+                        ],
+                    },
                 }
-            for ip
-            in utilities.boto3_call('list_resolver_endpoint_ip_addresses',
+            )
+
+
+def resource_rule_association(parm, vpc_id, rule_id):
+    return (
+            utilities.mk_id(
+                [
+                    f'ra{parm.kind}ZoneAssoc',
+                    parm.region_name,
+                    parm.target_env,
+                    vpc_id,
+                    rule_id,
+                    ]
+                ),
+            {
+                'Type':
+                'AWS::Route53Resolver::ResolverRuleAssociation',
+                'Properties': {
+                    'VPCId': vpc_id,
+                    'ResolverRuleId': utilities.fn_get_att(rule_id,
+                                                           'ResolverRuleId'),
+                    }
+                }
+            )
+
+
+def resource_share(parm, serial, domain_names):
+    friendly_name = parm.share_prefix + ('-%04x' % serial)
+
+    resource_arns = [
+            retrieve_logical_id(parm, 'DomainName', domain_name)
+            for domain_name
+            in domain_names
+            ]
+
+    share_id = utilities.mk_id(
+            [
+                f'rs{parm.kind}ResourceShare',
+                parm.region_name,
+                parm.target_env,
+                serial,
+                ]
+            )
+
+    return (
+            share_id,
+            {
+                'Type': 'AWS::RAM::ResourceShare',
+                'Properties': {
+                    'Name': friendly_name,
+                    'ResourceArns': resource_arns,
+                    'Principals': parm.principals,
+                    'Tags': parm.wex['Tags'] + [
+                        {
+                            'Key': 'Name',
+                            'Value': friendly_name,
+                            },
+                        {
+                            'Key': 'LogicalId',
+                            'Value': share_id,
+                            },
+                        ],
+                    },
+                }
+            )
+
+
+def resource_auto_associate(parm, share_id, principal):
+    return (
+            utilities.mk_id(
+                [
+                    f'cr{parm.kind}ZoneAutoAssoc',
+                    parm.region_name,
+                    parm.target_env,
+                    share_id,
+                    principal,
+                    ]
+                ),
+            {
+                'Type': 'AWS::CloudFormation::CustomResource',
+                'Properties': {
+                    'ServiceToken':
+                        utilities.import_value(
+                            parm.event,
+                            parm.wex,
+                            'auto_associate_function'
+                            ),
+                    'VpcDni': parm.region_data['VpcDni'],
+                    'RoleARN': {
+                        'Fn::Join': [
+                            ':', [
+                                'arn:aws:iam:',
+                                principal,
+                                {
+                                    'Fn::Join': [
+                                        '/', [
+                                            'role',
+                                            {
+                                                'Ref':
+                                                'CrossAccountRoleName',
+                                                },
+                                            ],
+                                        ],
+                                    },
+                                ],
+                            ],
+                        },
+                    'ShareArn': utilities.fn_get_att(share_id, 'Arn'),
+                    'LastUpdated': datetime.isoformat(datetime.now()),
+                    },
+                'DependsOn': [
+                    share_id,
+                    ]
+                }
+            )
+
+
+def load_infra(parm):
+    '''
+    Retrieve existing infra.
+    '''
+    if is_local_test(parm):  # TODO remove
+        with open('mock.infra') as f:
+            return json.load(f)
+
+    ram_shares = [
+            share
+            for share
+            in utilities.boto3_call('get_resource_shares',
                                     request={
-                                        'ResolverEndpointId': endpoint_id,
+                                        'resourceOwner': 'SELF'
                                         }
                                     )
-        ]
+            if re.match(parm.share_prefix + '-\\d{4}$', share['name'])
+            and share['status'] == 'ACTIVE'
+            ]
 
-    if not value:
-        raise RuntimeError("Can't retrieve endpoint IP addresses")
+    ram_resources = [
+            resource for resource
+            in utilities.boto3_call('list_resources',
+                                    request={
+                                        'resourceOwner': 'SELF'
+                                        }
+                                    )
+            ]
 
-    return value
+    r53resolver_rules = [
+            rule
+            for rule
+            in utilities.boto3_call('list_resolver_rules')
+            ]
+
+    return dict(
+            [
+                (
+                    int(share['name'][-4:], 16),
+                    [
+                        [
+                            rule['DomainName']
+                            for rule in r53resolver_rules
+                            if resource['arn'] == rule['Arn']
+                            and rule['Status'] == 'COMPLETE'
+                            ][0]
+                        for resource in ram_resources
+                        if resource['type'] == 'route53resolver:ResolverRule'
+                        and resource['resourceShareArn']
+                        == share['resourceShareArn']
+                        ]
+                    )
+                for share in ram_shares
+                ]
+            )
+
+
+def clean_zone_names(zones):
+    return set([
+        zone if zone.endswith('.') else zone + '.'
+        for zone
+        in [zone.strip() for zone in zones]
+        ])
+
+
+def target_endpoint_ips(parm):
+    if is_local_test(parm):  # TODO remove
+        return [
+                {
+                    'Ip': '127.0.0.1',
+                    'Port': '53',
+                    }
+                ]
+    elif parm.kind == 'AwsZones':
+        endpoint_id = retrieve_cfn_export(parm.event,
+                                          parm.wex,
+                                          'endpoint_inbound')
+        return [
+                {
+                    'Ip': ip['Ip'],
+                    'Port': '53',
+                    }
+                for ip
+                in utilities.boto3_call('list_resolver_endpoint_ip_addresses',
+                                        request={
+                                            'ResolverEndpointId': endpoint_id,
+                                            }
+                                        )
+            ]
+    elif parm.kind == 'OnPremZones':
+        return [
+                {
+                    'Ip': target_ip,
+                    'Port': 53,
+                    }
+                for target_ip
+                in parm.region_data['OnPremResolverIps']
+                ]
 
 
 def create_template(event, context):
     '''
     Assuming the correct template; do not attempt to recover.
     '''
-    region = event['region']
-    tree = {
-            0: set(),
-            1: set(),
-            }
+    parm = Namespace(
+            event=event,
+            region_name=event['region'],
+            region_data=dict(),
+            wex=event['fragment']['Mappings'].pop('Wex'),
+            )
 
-    wex = event['fragment']['Mappings'].pop('Wex')
+    # calculate region data by updating `default` with the specific region
+    for k in ['default', parm.region_name]:
+        if k in parm.wex['Infoblox']['Regions']:
+            parm.region_data.update(
+                    deepcopy(parm.wex['Infoblox']['Regions'][k]))
 
-    # check if default settings are present in Infoblox
-    if 'default' in wex['Infoblox']['Regions']:
-        data = deepcopy(wex['Infoblox']['Regions']['default'])
-    else:
-        data = dict()
+    for k, v in [
+            ('Instantiate', 'kind'),
+            ('Environment', 'env'),
+            ('TargetEnvironment', 'target_env'),
+            ('MaxRulesPerShare', 'max_rules'),
+            ]:
+        parm.__setattr__(v, event['templateParameterValues'][k])
 
-    # Update if regional data block is present
-    if region in wex['Infoblox']['Regions']:
-        data.update(wex['Infoblox']['Regions'][region])
+    # prefix for the resources exported by this stack (eg. RAM shares)
+    parm.share_prefix = \
+        f'wex-{parm.kind}-zones-share-{parm.target_env}'.lower()
 
-    kind = event['templateParameterValues']['Instantiate']
+    # list of principals to share rules to
+    parm.principals = sorted(set(parm.wex['Accounts']) -
+                             set([parm.event['accountId']]))
 
-    if kind == 'AwsZones':
-        target_endpoint_ips = retrieve_inbound_ips(event, wex)
-    elif kind == 'OnPremZones':
-        target_endpoint_ips = [
-                {
-                    'Ip': target_ip,
-                    'Port': 53,
-                    }
-                for target_ip
-                in data['OnPremResolverIps']
+    # cache target endpoint ips, they are common for all the rules
+    parm.target_endpoint_ips = target_endpoint_ips(parm)
+
+    parm.resources = dict()  # acts as a symlink to event[..]
+    event['fragment']['Resources'] = parm.resources
+
+    if is_local_test(parm):  # TODO: remove
+        parm.vpcs = [
+                'vpc-0123456789',
+                'vpc-1234567890'
                 ]
     else:
-        raise RuntimeError(f'Transform type {kind} is invalid')
+        if parm.kind == 'OnPremZones':
+            if 'VpcDni' not in parm.region_data:
+                parm.region_data['VpcDni'] = set()
 
-    target_env = event['templateParameterValues']['TargetEnvironment'].lower()
-
-    resources = dict()
-    event['fragment']['Resources'] = resources
-
-    for zone in wex[kind]:
-        zone_name = re.sub('_$', '',
-                           re.sub('\\.', '_',
-                                  zone.strip() + target_env))
-
-        rule_id = utilities.mk_id(
-                [
-                    f'rr{kind}Zone',
-                    target_env,
-                    zone,
-                    region,
+            parm.vpcs = [
+                    export['Value']
+                    for export
+                    in utilities.boto3_call('list_exports')
+                    if utilities.is_exported_vpc(export)
+                    and export['Value'] not in parm.region_data['VpcDni']
                     ]
-                )
+        else:
+            parm.vpcs = list()  # do not ever associate hosted zones
 
-        populate_tree(tree, rule_id, 0)
+    for zone in clean_zone_names(parm.wex[parm.kind]):
+        rule_id, rule_data = resource_rule(parm, zone)
+        parm.resources[rule_id] = rule_data
 
-        resources[rule_id] = {
-                'Type': 'AWS::Route53Resolver::ResolverRule',
-                'Properties': {
-                    'Name': zone_name,
-                    'RuleType': 'FORWARD',
-                    'DomainName': zone,
-                    'ResolverEndpointId':
-                        utilities.import_value(
-                            event,
-                            wex,
-                            'endpoint_outbound'
-                            ),
-                    'TargetIps': target_endpoint_ips,
-                    'Tags': wex['Tags'] + [
-                        {
-                            'Key': 'Name',
-                            'Value': zone_name,
-                            },
-                        ],
-                    },
-                }
+        # Associate to all locally exported VPCs
+        # (except the ones listed in the DNI section)
+        for vpc_id in parm.vpcs:
+            rule_assoc_id, rule_assoc_data = \
+                    resource_rule_association(parm, vpc_id, rule_id)
+            parm.resources[rule_assoc_id] = rule_assoc_data
 
-        # Associate to all locally exported VPCs (except the ones listed
-        # in the DNI section).
-        if kind == 'OnPremZones':
-            for export in utilities.boto3_call('list_exports'):
-                if not utilities.is_exported_vpc(export):
-                    continue
-                if 'VpcDni' in data and \
-                        export['Name'] in data['VpcDni']:
-                    continue
-                rule_assoc_id = utilities.mk_id(
-                        [
-                            f'ra{kind}ZoneAssoc',
-                            target_env,
-                            zone,
-                            region,
-                            ]
-                        )
+    # zones are created and possibly associated to [some] local VPC(s)
 
-                resources[rule_assoc_id] = {
-                        'Type':
-                        'AWS::Route53Resolver::ResolverRuleAssociation',
-                        'Properties': {
-                            'ResolverRuleId':
-                                utilities.fn_get_att(rule_id,
-                                                     'ResolverRuleId'),
-                            'VPCId': export['Value'],
-                            }
-                        }
+    # load existing infra; note some keys might be missing, like '1' here:
+    # {
+    #   0: [
+    #      "giftvoucher.com.",
+    #       ...
+    #   ],
+    #   2: [
+    #      "giftvoucher.net.",
+    #      ...
+    #   ],
+    #   ...
+    # }
+    infra_pre = load_infra(parm)
 
-    rebalance_limit = int(event['templateParameterValues']['MaxRulesPerShare'])
-    rebalance_tree(tree, rebalance_limit, 0)
-
-    # Share created ResolverRule(s) to all principals (except self)
-    principals = set(wex['Accounts']) - set([event['accountId']])
-
-    for bucket in unroll_tree(tree, [], 0, 0):
-        share_id = utilities.mk_id(
-                [
-                    f'rs{kind}ResourceShare',
-                    target_env,
-                    region,
-                    f'{bucket[0]}',
-                    ]
-                )
-
-        resource_arns = [
-                utilities.fn_get_att(rule_id, 'Arn')
-                for rule_id
-                in bucket[1]
-                ]
-
-        friendly_name = f'wex-{kind}-zones-share' \
-                        f'-{target_env}-{"%04x" % bucket[0]}'
-        friendly_name = friendly_name.lower()  # make sure it's lowercase
-
-        resources[share_id] = {
-                'Type': 'AWS::RAM::ResourceShare',
-                'Properties': {
-                    'Name': friendly_name,
-                    'ResourceArns': resource_arns,
-                    'Principals': list(principals),
-                    'Tags': wex['Tags'] + [
-                        {
-                            'Key': 'Name',
-                            'Value': friendly_name,
-                            },
-                        ],
-                    },
-                }
-
-        # Do not remove 'LastUpdated'; it's required to trigger Lambda
-        # NOTE: rule_id s the same across the accounts.
-        # However, AWS documentation does not formally guarantee that.
-        for principal in principals:
-            auto_associate_id = utilities.mk_id(
-                    [
-                        f'cr{kind}AutoAssociate',
-                        target_env,
-                        region,
-                        principal,
-                        f'{bucket[0]}',
-                        ]
+    # create target infra scuffolds:
+    #  same as infra_pre with no ResourceShare references
+    infra_post = dict(
+            [
+                (
+                    int(number),
+                    list()
                     )
+                for number
+                in infra_pre
+                ]
+            )
 
-            resources[auto_associate_id] = {
-                    'Type': 'AWS::CloudFormation::CustomResource',
-                    'Properties': {
-                        'ServiceToken':
-                            utilities.import_value(
-                                event,
-                                wex,
-                                'auto_associate_function'
-                                ),
-                        'VpcDni': data['VpcDni'],
-                        'RoleARN': {
-                            'Fn::Join': [
-                                ':', [
-                                    'arn:aws:iam:',
-                                    principal,
-                                    {
-                                        'Fn::Join': [
-                                            '/', [
-                                                'role',
-                                                {
-                                                    'Ref':
-                                                    'CrossAccountRoleName',
-                                                    },
-                                                ],
-                                            ],
-                                        },
-                                    ],
-                                ],
-                            },
-                        'ShareArn': utilities.fn_get_att(share_id, 'Arn'),
-                        'LastUpdated': datetime.isoformat(datetime.now()),
-                        },
-                    'DependsOn': [
-                        share_id,
-                        ]
-                    }
+    # zones we are about to create; let's use half-baked template
+    zones = set(
+            [
+                resource['Properties']['DomainName']
+                for resource
+                in parm.resources.values()
+                if resource['Type'] == 'AWS::Route53Resolver::ResolverRule'
+                ]
+            )
+
+    # 1. Copy parts of an existing infra that is still relevant
+    for idx in infra_pre:
+        idx_int = int(idx)
+        for zone in sorted(infra_pre[idx]):
+            if zone in zones and \
+                    len(infra_post[idx_int]) < int(parm.max_rules):
+                infra_post[idx_int].append(zone)
+                zones.remove(zone)
+
+    serial = 0  # start scanning from zero
+    while True:
+        # 2a. Process remaining rules; append to existing shares
+        for zone in sorted(zones):
+            for idx in sorted(infra_post):
+                if len(infra_post[idx]) < int(parm.max_rules):
+                    infra_post[idx].append(zone)
+                    zones.remove(zone)
+                    break
+
+        if not zones:
+            break
+
+        # 2b. Create one blank share
+        if serial not in infra_post:
+            infra_post[serial] = list()
+        else:
+            serial += 1
+
+    # infra created, translate to resources
+    for serial, domain_names in infra_post.items():
+        share_id, share_data = \
+                resource_share(parm, serial, domain_names)
+        parm.resources[share_id] = share_data
+        for principal in parm.principals:
+            saa_id, saa_data = \
+                    resource_auto_associate(parm, share_id, principal)
+            parm.resources[saa_id] = saa_data
 
     return {
             'requestId': event['requestId'],
