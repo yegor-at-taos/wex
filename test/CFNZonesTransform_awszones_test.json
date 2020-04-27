@@ -1,0 +1,218 @@
+{
+  "accountId": "229349022034",
+  "fragment": {
+    "AWSTemplateFormatVersion": "2010-09-09",
+    "Mappings": {
+      "Wex": {
+        "Tags": [
+          {
+            "Key": "Owner",
+            "Value": "naidu.kandulapati@wexinc.com"
+          },
+          {
+            "Key": "Email",
+            "Value": "cloudeng@wexinc.com"
+          },
+          {
+            "Key": "BillingId",
+            "Value": "CE-90325"
+          },
+          {
+            "Key": "Application",
+            "Value": "WEX DNS"
+          },
+          {
+            "Key": "Environment",
+            "Value": "prod"
+          },
+          {
+            "Key": "Lob",
+            "Value": "custodian"
+          },
+          {
+            "Key": "TargetEnvironment",
+            "Value": "devtest"
+          }
+        ],
+        "Infoblox": {
+          "Regions": {
+            "default": {
+              "VpcDni": [
+                "vpc-0293da132bd06d378",
+                "vpc-0a6bf3cdb6cc82e1f"
+              ]
+            },
+            "us-east-1": {
+              "OnPremResolverIps": [
+                "10.94.1.77",
+                "10.232.4.1"
+              ]
+            }
+          }
+        },
+        "AwsZones": [
+            "overflow000.yegor.gorshkov.private.",
+            "overflow001.yegor.gorshkov.private.",
+            "overflow002.yegor.gorshkov.private.",
+            "overflow003.yegor.gorshkov.private.",
+            "overflow004.yegor.gorshkov.private.",
+            "overflow005.yegor.gorshkov.private.",
+            "overflow006.yegor.gorshkov.private.",
+            "overflow007.yegor.gorshkov.private.",
+            "overflow008.yegor.gorshkov.private.",
+            "overflow009.yegor.gorshkov.private.",
+            "overflow00a.yegor.gorshkov.private.",
+            "placeholder000.yegor.gorshkov.private.",
+            "placeholder001.yegor.gorshkov.private.",
+            "placeholder002.yegor.gorshkov.private.",
+            "placeholder003.yegor.gorshkov.private.",
+            "placeholder004.yegor.gorshkov.private.",
+            "placeholder005.yegor.gorshkov.private.",
+            "placeholder006.yegor.gorshkov.private.",
+            "wex-ce.com.",
+            "prod-internal.wexfleetservice.com.",
+            "stg-internal.wexfleetweb.com.",
+            "ew1.wexglobal.com.",
+            "local.",
+            "wmd-dit.",
+            "ski-internal.wexfleetweb.com.",
+            "giftvouchers.com.au.",
+            "wex-adam-tok-53-test.",
+            "prd-internal.wexcardbenefits.com.",
+            "uw2.wexglobal.com.",
+            "qa.encompass-suite.com.",
+            "qa.encprimary.com.",
+            "giftvoucher.com.",
+            "ue1.nafleetdbf.wexglobal.com.",
+            "dit-internal.wexfleetweb.com.",
+            "ue1.nafleetdit.wexglobal.com.",
+            "aocsolcloud.com.",
+            "stg-internal.wexcardbenefits.com.",
+            "dbf-internal.wexfleetweb.com.",
+            "ue1.wexglobal.com.",
+            "prd-internal.wexfleetservice.com.",
+            "myprepaidcard.com.au.",
+            "dr-internal.wexfleetservice.com.",
+            "internal-demo.wexcp.com.",
+            "prod.appd.wex-tools.com.",
+            "dev.encompass-suite.com.",
+            "prod.wexauthgateway.com.",
+            "ae1.wexglobal.com.",
+            "stg-internal.wexfleetservice.com.",
+            "internal-test.wexcp.com.",
+            "internal.wexcardbenefits.com.",
+            "wmd-prod.",
+            "giftvouchers.com.",
+            "prod-internal.wexfleetcards.com.",
+            "ue1.nafleetstage.wexglobal.com.",
+            "wrightexpressprepaidcards.com.au.",
+            "uat-internal.wexmobile.com.",
+            "dab-internal.wexfleetweb.com.",
+            "wmd-robs-test.",
+            "prod.efs.wexapps.com.",
+            "internal.wexfleetservice.com.",
+            "prod.wextest.com.",
+            "encprimary.com.",
+            "uat-internal.wexfleetservice.com.",
+            "wmd-k-connect.",
+            "arexchange.local.",
+            "dev.pd.wexcp.com.",
+            "ue1.nafleetsit.wexglobal.com.",
+            "97.10.in-addr.arpa.",
+            "duh-internal.wexfleetweb.com.",
+            "dev.encprimary.com.",
+            "doh-internal.wexfleetweb.com.",
+            "internal.wexcp.com.",
+            "wex-ea.com.",
+            "s-core.search.wex-tools.com.",
+            "data-wexapps.com.",
+            "internal.wexfleetcards.com.",
+            "ae2.wexglobal.com.",
+            "appd.",
+            "prod.intwexmobile.net.",
+            "sol-internal.wexfleetweb.com.",
+            "stage.intwexmobile.net.",
+            "internal-sandbox.wexcp.com.",
+            "giftvouchers.co.nz.",
+            "tokenator-test.wexapps.com.",
+            "synchro.wexinc.com.",
+            "ecomindustries.com.au.",
+            "stage-internal.wexmobileauth.com.",
+            "giftvoucher.com.au.",
+            "everydaygiftcards.com.au.",
+            "stage.wexauthgateway.com.",
+            "s-core.appd.wex-tools.com.",
+            "devtools.wexinc.com.",
+            "prd-internal.wexfleetweb.com.",
+            "wmd-sit.",
+            "dev.aocsol.",
+            "ec1.wexglobal.com.",
+            "wmd-kafka-connect-poc.",
+            "10.97.10.in-addr.arpa.",
+            "dev.noventis.cc.",
+            "internal.wexfleetweb.com.",
+            "uat-internal.wexfleetcards.com.",
+            "internal.wexmobileauth.com.",
+            "dev.wexauthgateway.com.",
+            "sac-internal.wexfleetweb.com.",
+            "sit-internal.wexfleetweb.com.",
+            "dev.efs.wexapps.com.",
+            "wmd-stage.",
+            "prod2.intwexmobile.net.",
+            "internal-dev.wexcp.com.",
+            "prod-internal.wexmobileauth.com.",
+            "wmd-card-watch."
+        ],
+        "Accounts": [
+          "229349022034",
+          "544308222195"
+        ]
+      }
+    },
+    "Parameters": {
+      "Lob": {
+        "Type": "String",
+        "Description": "WEX Inc., Line of business; eg. 'coreservices'"
+      },
+      "TargetEnvironment": {
+        "Type": "String",
+        "Description": "Wex Target Environment; stack tag"
+      },
+      "Instantiate": {
+        "Type": "String",
+        "AllowedValues": [
+          "AwsZones",
+          "OnPremZones"
+        ],
+        "Description": "Instantiate for AwsZones or OnPremZones"
+      },
+      "CrossAccountRoleName": {
+        "Type": "String",
+        "Description": "Lambda Satellite IAM Role name"
+      },
+      "MaxRulesPerShare": {
+        "Type": "Number",
+        "Description": "Limit RuleId count per RAM Share",
+        "Default": "50"
+      }
+    },
+    "Description": "WEX Inc., AWS Route 53 Resolver OnPremZones rules and shares",
+    "Transform": [
+      "CFNZonesTransformMacro"
+    ]
+  },
+  "transformId": "229349022034::CFNEndpointsTransformMacro",
+  "requestId": "e1ca68e2-40f2-42d2-b400-aa11e6c790e6",
+  "region": "us-east-1",
+  "params": {},
+  "templateParameterValues": {
+    "Instantiate": "AwsZones",
+    "CrossAccountRoleName": "WexCloudFormationCrossAccountRole",
+    "Environment": "prod",
+    "TargetEnvironment": "devtest",
+    "MaxIpAddresses": "2",
+    "MaxRulesPerShare": "11",
+    "LambdaStack": "custodian-dev-ue1-lambda-utilities-stk",
+    "Lob": "custodian"
+  }
+}

@@ -1,0 +1,114 @@
+{
+  "accountId": "229349022034",
+  "fragment": {
+    "AWSTemplateFormatVersion": "2010-09-09",
+    "Mappings": {
+      "Wex": {
+        "Tags": [
+          {
+            "Key": "Owner",
+            "Value": "naidu.kandulapati@wexinc.com"
+          },
+          {
+            "Key": "Email",
+            "Value": "cloudeng@wexinc.com"
+          },
+          {
+            "Key": "BillingId",
+            "Value": "CE-90325"
+          },
+          {
+            "Key": "Application",
+            "Value": "WEX DNS"
+          },
+          {
+            "Key": "Environment",
+            "Value": "prod"
+          },
+          {
+            "Key": "Lob",
+            "Value": "custodian"
+          },
+          {
+            "Key": "TargetEnvironment",
+            "Value": "devtest"
+          }
+        ],
+        "Infoblox": {
+          "Regions": {
+            "default": {
+              "VpcDni": [
+                "vpc-0293da132bd06d378",
+                "vpc-0a6bf3cdb6cc82e1f"
+              ]
+            },
+            "us-east-1": {
+              "OnPremResolverIps": [
+                "10.94.1.77",
+                "10.232.4.1"
+              ]
+            }
+          }
+        },
+        "OnPremZones": [
+          "wexglobal.com.",
+          "wexcp.com.",
+          "prod.efs.com.",
+          "wexinc.com.",
+          "wexprodr.wexglobal.com.",
+          "ad.wrightexpress.com.",
+          "wexapps.com.",
+          "wrightexpress.com."
+        ],
+        "Accounts": [
+          "229349022034"
+        ]
+      }
+    },
+    "Parameters": {
+      "Lob": {
+        "Type": "String",
+        "Description": "WEX Inc., Line of business; eg. 'coreservices'"
+      },
+      "TargetEnvironment": {
+        "Type": "String",
+        "Description": "Wex Target Environment; stack tag"
+      },
+      "Instantiate": {
+        "Type": "String",
+        "AllowedValues": [
+          "AwsZones",
+          "OnPremZones"
+        ],
+        "Description": "Instantiate for AwsZones or OnPremZones"
+      },
+      "CrossAccountRoleName": {
+        "Type": "String",
+        "Description": "Lambda Satellite IAM Role name"
+      },
+      "MaxRulesPerShare": {
+        "Type": "Number",
+        "Description": "Limit RuleId count per RAM Share",
+        "Default": "50"
+      }
+    },
+    "Description": "WEX Inc., AWS Route 53 Resolver OnPremZones rules and shares",
+    "Transform": [
+      "CFNZonesTransformMacro"
+    ]
+  },
+  "transformId": "229349022034::CFNEndpointsTransformMacro",
+  "requestId": "e1ca68e2-40f2-42d2-b400-aa11e6c790e6",
+  "region": "us-east-1",
+  "params": {},
+  "templateParameterValues": {
+    "Instantiate": "OnPremZones",
+    "CrossAccountRoleName": "WexCloudFormationCrossAccountRole",
+    "Environment": "prod",
+    "TargetEnvironment": "devtest",
+    "MaxIpAddresses": "2",
+    "MaxRulesPerShare": "8",
+    "LambdaStack": "custodian-dev-ue1-lambda-utilities-stk",
+    "Lob": "custodian"
+  }
+}
