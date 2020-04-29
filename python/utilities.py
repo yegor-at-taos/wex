@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import boto3
+from botocore.config import Config
 import json
 import hashlib
 import logging
@@ -172,8 +173,15 @@ def send_response(status, reason, event, context):
 def boto3_call(method, access_token=dict(), request=dict()):
     variations = ['NextToken', 'nextToken']
 
-    sleep(uniform(1, 3))
-    client = boto3.client(boto3_map[method][0], **access_token)
+    config = Config(
+            retries=dict(
+                max_attempts=10
+                )
+            )
+
+    client = boto3.client(boto3_map[method][0],
+                          **access_token,
+                          config=config)
 
     value = list()
 

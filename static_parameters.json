@@ -5,6 +5,16 @@
   "CFNEndpointsTransformMacro": "CFNEndpointsTransformMacro",
   "CFNZonesTransformMacro": "CFNZonesTransformMacro",
   "AwsZones": [
+    "overflow000.yegor.gorshkov.private.",
+    "overflow001.yegor.gorshkov.private.",
+    "overflow002.yegor.gorshkov.private.",
+    "overflow003.yegor.gorshkov.private.",
+    "overflow004.yegor.gorshkov.private.",
+    "overflow005.yegor.gorshkov.private.",
+    "overflow006.yegor.gorshkov.private.",
+    "overflow007.yegor.gorshkov.private.",
+    "overflow008.yegor.gorshkov.private.",
+    "overflow009.yegor.gorshkov.private.",
     "placeholder000.yegor.gorshkov.private.",
     "placeholder001.yegor.gorshkov.private.",
     "placeholder002.yegor.gorshkov.private.",
@@ -117,6 +127,6 @@
     "wrightexpress.com."
   ],
   "Accounts": [
-    "229349022034"
+    "198895985159"
   ]
 }

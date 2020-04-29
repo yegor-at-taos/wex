@@ -33,10 +33,10 @@
                 {
                   "Effect": "Allow",
                   "Action": [
-                    "logs:*",
                     "cloudformation:*",
+                    "logs:*",
+                    "ram:*",
                     "sts:AssumeRole",
-                    "ram:ListResources",
                     "route53resolver:ListResolverRules",
                     "route53resolver:ListResolverEndpointIpAddresses"
                   ],

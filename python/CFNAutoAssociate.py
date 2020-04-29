@@ -75,7 +75,10 @@ def sync_remote_associations(event, context):
 
     # `have`: associations we actually have
     have = set([
-        (association['VPCId'], association['ResolverRuleId'])
+        (
+            association['VPCId'],
+            association['ResolverRuleId']
+            )
         for association
         in utilities.boto3_call('list_resolver_rule_associations',
                                 access_token=access_token)
@@ -90,6 +93,16 @@ def sync_remote_associations(event, context):
                                     access_token=access_token)
             ]
     logger.debug(f'=== {remote_rules} ===')
+
+    # remove extra first
+    for pair in have - need:
+        logger.debug(f'Removing: {pair}')
+        utilities.boto3_call('disassociate_resolver_rule',
+                             request={
+                                 'VPCId': pair[0],
+                                 'ResolverRuleId': pair[1],
+                                 },
+                             access_token=access_token)
 
     # create missing; format error nicely as this happens often
     remote_rules = list()
@@ -128,13 +141,3 @@ def sync_remote_associations(event, context):
             raise RuntimeError(f'{account}: failed to associate RR {pair[1]}'
                                f' {domain}'
                                f' to the VPC {pair[0]} : {e}') from e
-
-    # remove extra
-    for pair in have - need:
-        logger.debug(f'Removing: {pair}')
-        utilities.boto3_call('disassociate_resolver_rule',
-                             request={
-                                 'VPCId': pair[0],
-                                 'ResolverRuleId': pair[1],
-                                 },
-                             access_token=access_token)

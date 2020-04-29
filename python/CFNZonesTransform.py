@@ -127,7 +127,7 @@ def resource_rule_association(parm, vpc_id, rule_id):
 def resource_share(parm, serial, domain_names):
     friendly_name = parm.share_prefix + ('-%04x' % serial)
 
-    resource_arns = [
+    resource_ids = [
             retrieve_logical_id(parm, 'DomainName', domain_name)
             for domain_name
             in domain_names
@@ -148,7 +148,11 @@ def resource_share(parm, serial, domain_names):
                 'Type': 'AWS::RAM::ResourceShare',
                 'Properties': {
                     'Name': friendly_name,
-                    'ResourceArns': resource_arns,
+                    'ResourceArns': [
+                        utilities.fn_get_att(resource_id, 'Arn')
+                        for resource_id
+                        in resource_ids
+                        ],
                     'Principals': parm.principals,
                     'Tags': parm.wex['Tags'] + [
                         {
@@ -453,13 +457,30 @@ def create_template(event, context):
             serial += 1
 
     # infra created, translate to resources
+
+    throttle_share = None
     for serial, domain_names in infra_post.items():
         share_id, share_data = \
                 resource_share(parm, serial, domain_names)
+        # add a twist, make 'em depend one from the other
+        if throttle_share is not None:
+            share_data['DependsOn'] = [
+                    throttle_share
+                    ]
+        throttle_share = share_id
         parm.resources[share_id] = share_data
+
+        throttle_saa = None
         for principal in parm.principals:
             saa_id, saa_data = \
                     resource_auto_associate(parm, share_id, principal)
+
+            if throttle_saa is not None:
+                saa_data['DependsOn'] = [
+                        throttle_saa
+                        ]
+            throttle_saa = saa_id
+
             parm.resources[saa_id] = saa_data
 
     return {
