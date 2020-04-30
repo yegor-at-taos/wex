@@ -37,7 +37,7 @@ cat > "$fragment" <<EOF
 {
   "Description": "WEX Inc., AWS Route 53 Resolver Endpoints and SGs",
   "Transform": [
-    $(jq '.CFNEndpointsTransformMacro' static_parameters.json)
+    $(jq '.CFNEndpointsTransformMacro' "$static_parameters")
   ],
   "Parameters": {
     "LambdaStack": {

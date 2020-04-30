@@ -20,8 +20,8 @@ cat > "$fragment" <<EOF
   "Mappings": {
     "Wex": {
       "Tags": $(retrieve_tags),
-      "$kind": $(jq .$kind static_parameters.json),
-      "Accounts": $(jq .Accounts static_parameters.json)
+      "$kind": $(jq .$kind "$static_parameters"),
+      "Accounts": $(jq .Accounts "$static_parameters")
     }
   },
   "Parameters": {
@@ -40,7 +40,7 @@ cat > "$fragment" <<EOF
     }
   },
   "Transform": [
-    $(jq '.CFNZonesTransformMacro' static_parameters.json)
+    $(jq '.CFNZonesTransformMacro' "$static_parameters")
   ]
 }
 EOF

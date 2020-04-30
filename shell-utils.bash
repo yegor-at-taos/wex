@@ -136,6 +136,10 @@ while (( $# )); do
             readonly target_environment="$2"
             shift 2
             ;;
+        -p|--parm)
+            readonly static_parameters="$2"
+            shift 2
+            ;;
         *)
             echo "Usage: $0 -a|--aws-account account"
             echo "          -r|--region region"
@@ -145,6 +149,8 @@ while (( $# )); do
             ;;
     esac
 done
+
+[[ -v static_parameters ]] && static_parameters='static_parameters.json'
 
 if [[ $region == 'global' ]]; then
     readonly short_region='glb'
@@ -156,8 +162,8 @@ else
 fi
 readonly account_name=$(account_name "$profile")
 readonly json_template='json/cloudformation-template.json'
-readonly role_utilities=$(jq -r '.LambdaUtilitiesRole' static_parameters.json)
-readonly role_satellite=$(jq -r '.LambdaSatelliteRole' static_parameters.json)
+readonly role_utilities=$(jq -r '.LambdaUtilitiesRole' "$static_parameters")
+readonly role_satellite=$(jq -r '.LambdaSatelliteRole' "$static_parameters")
 
 readonly wex_lob=${account_name%-?*}
 readonly wex_environment=${account_name#?*-}

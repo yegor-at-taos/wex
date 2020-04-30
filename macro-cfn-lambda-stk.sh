@@ -19,7 +19,7 @@ Output parameters:
 EOF
 
 stack_name="$account_name-$short_region-cfn-lambda-utilities-stk"
-bucket="$(jq -r '.S3BucketName' static_parameters.json)"
+bucket="$(jq -r '.S3BucketName' "$static_parameters")"
 
 json=$(remove_on_exit --suffix='.json')
 
@@ -305,7 +305,7 @@ aws --profile "wex-$profile" --region "$region" \
         },
         {
             \"ParameterKey\": \"RoleName\",
-            \"ParameterValue\": $(jq '.LambdaUtilitiesRole' static_parameters.json)
+            \"ParameterValue\": $(jq '.LambdaUtilitiesRole' "$static_parameters")
         },
         {
             \"ParameterKey\": \"S3BucketName\",

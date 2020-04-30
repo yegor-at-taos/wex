@@ -24,7 +24,7 @@ for script in csv-audit.py python/*.py; do
     flake8 "$script"
 done
 
-for script in stk-*.bash; do
+for script in *-stk.sh; do
     [[ $script = 'shell-utils.bash' ]] && continue
     shellcheck -x "$script" shell-utils.bash
 done
