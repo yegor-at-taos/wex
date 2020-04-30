@@ -150,7 +150,8 @@ while (( $# )); do
     esac
 done
 
-[[ ! -v static_parameters ]] && static_parameters='static_parameters.json'
+[[ ${static_parameters:-null} = 'null' ]] && \
+    static_parameters='static_parameters.json'
 
 if [[ $region == 'global' ]]; then
     readonly short_region='glb'
