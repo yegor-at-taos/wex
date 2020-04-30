@@ -83,7 +83,7 @@ retrieve_tags() {
         select(.Key == \"Environment\").Value = \"$wex_environment\"
             ]" "$json_template" > "$combined"
 
-    if [[ -v target_environment ]]; then
+    if [[ ${target_environment:-null} != 'null' ]]; then
         jq ".+= [{ \"Key\": \"TargetEnvironment\",
                    \"Value\": \"$target_environment\" }]" \
                        "$combined" > "$fragment"
