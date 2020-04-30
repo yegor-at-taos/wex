@@ -7,8 +7,6 @@ import re
 import traceback
 import utilities
 
-import json
-
 
 logger = logging.getLogger('CFNZonesTransform')
 logger.setLevel(logging.DEBUG)
@@ -124,13 +122,15 @@ def resource_rule_association(parm, vpc_id, rule_id):
             )
 
 
-def resource_share(parm, serial, domain_names):
-    friendly_name = parm.share_prefix + ('-%04x' % serial)
+def resource_share(parm, zone_slot, zone_list, principal_slot, principal_list):
+    friendly_name = parm.share_prefix + '-' + \
+            ('%04x' % principal_slot) + \
+            ('%04x' % zone_slot)
 
     resource_ids = [
-            retrieve_logical_id(parm, 'DomainName', domain_name)
-            for domain_name
-            in domain_names
+            retrieve_logical_id(parm, 'DomainName', zone_name)
+            for zone_name
+            in zone_list
             ]
 
     share_id = utilities.mk_id(
@@ -138,7 +138,9 @@ def resource_share(parm, serial, domain_names):
                 f'rs{parm.kind}ResourceShare',
                 parm.region_name,
                 parm.target_env,
-                serial,
+                parm.share_prefix,
+                principal_list,
+                zone_slot,
                 ]
             )
 
@@ -153,7 +155,7 @@ def resource_share(parm, serial, domain_names):
                         for resource_id
                         in resource_ids
                         ],
-                    'Principals': parm.principals,
+                    'Principals': principal_list,
                     'Tags': parm.wex['Tags'] + [
                         {
                             'Key': 'Name',
@@ -219,41 +221,37 @@ def resource_auto_associate(parm, share_id, principal):
             )
 
 
-def load_infra(parm):
-    '''
-    Retrieve existing infra.
-    '''
-    if is_local_test(parm):  # TODO remove
-        with open('mock.infra') as f:
-            return json.load(f)
+def load_existing_data(parm):
+    parm.ram_shares = \
+        utilities.boto3_call('get_resource_shares',
+                             request={
+                                 'resourceOwner': 'SELF',
+                                 }
+                             )
 
-    ram_shares = [
-            share
-            for share
-            in utilities.boto3_call('get_resource_shares',
-                                    request={
-                                        'resourceOwner': 'SELF'
-                                        }
-                                    )
-            if re.match(parm.share_prefix + '-\\d{4}$', share['name'])
-            and share['status'] == 'ACTIVE'
-            ]
+    parm.ram_resources = \
+        utilities.boto3_call('list_resources',
+                             request={
+                                 'resourceOwner': 'SELF',
+                                 'resourceType':
+                                 'route53resolver:ResolverRule',
+                                 }
+                             )
 
-    ram_resources = [
-            resource for resource
-            in utilities.boto3_call('list_resources',
-                                    request={
-                                        'resourceOwner': 'SELF'
-                                        }
-                                    )
-            ]
+    parm.ram_principals = \
+        utilities.boto3_call('list_principals',
+                             request={
+                                 'resourceOwner': 'SELF',
+                                 'resourceType':
+                                 'route53resolver:ResolverRule',
+                                 }
+                             )
 
-    r53resolver_rules = [
-            rule
-            for rule
-            in utilities.boto3_call('list_resolver_rules')
-            ]
+    parm.r53resolver_rules = \
+        utilities.boto3_call('list_resolver_rules')
 
+
+def join_resources(parm):
     return dict(
             [
                 (
@@ -261,19 +259,86 @@ def load_infra(parm):
                     [
                         [
                             rule['DomainName']
-                            for rule in r53resolver_rules
+                            for rule in parm.r53resolver_rules
                             if resource['arn'] == rule['Arn']
                             and rule['Status'] == 'COMPLETE'
                             ][0]
-                        for resource in ram_resources
+                        for resource in parm.ram_resources
                         if resource['type'] == 'route53resolver:ResolverRule'
                         and resource['resourceShareArn']
                         == share['resourceShareArn']
                         ]
                     )
-                for share in ram_shares
+                for share in [
+                    share for share
+                    in parm.ram_shares
+                    if re.match(parm.share_prefix + '-\\d{8}$', share['name'])
+                    and share['status'] == 'ACTIVE'
+                    ]
                 ]
             )
+
+
+def join_principals(parm):
+    return dict(
+            [
+                (
+                    int(share['name'][-8:-4], 16),
+                    [
+                        principal['id']
+                        for principal in parm.ram_principals
+                        if principal['resourceShareArn']
+                        == share['resourceShareArn']
+                        ]
+                    )
+                for share in [
+                    share for share
+                    in parm.ram_shares
+                    if re.match(parm.share_prefix + '-\\d{8}$', share['name'])
+                    and share['status'] == 'ACTIVE'
+                    ]
+                ]
+            )
+
+
+def pre_to_post(pre, new_objs, max_objs):
+    post = dict(
+            [
+                (
+                    int(number),
+                    list()
+                    )
+                for number
+                in pre
+                ]
+            )
+
+    for idx in pre:
+        new_idx = int(idx)  # use `idx` as-is, make `new_idx` int
+        for old_obj in sorted(pre[idx]):
+            if old_obj in new_objs and \
+                    len(post[new_idx]) < int(max_objs):
+                post[new_idx].append(old_obj)
+                new_objs.remove(old_obj)
+
+    serial = 0  # start scanning from zero
+    while True:
+        for new_obj in sorted(new_objs):
+            for idx in sorted(post):
+                if len(post[idx]) < int(max_objs):
+                    post[idx].append(new_obj)
+                    new_objs.remove(new_obj)
+                    break
+
+        if not new_objs:
+            break
+
+        while serial in post:
+            serial += 1
+
+        post[serial] = list()
+
+    return post
 
 
 def clean_zone_names(zones):
@@ -285,14 +350,7 @@ def clean_zone_names(zones):
 
 
 def target_endpoint_ips(parm):
-    if is_local_test(parm):  # TODO remove
-        return [
-                {
-                    'Ip': '127.0.0.1',
-                    'Port': '53',
-                    }
-                ]
-    elif parm.kind == 'AwsZones':
+    if parm.kind == 'AwsZones':
         endpoint_id = retrieve_cfn_export(parm.event,
                                           parm.wex,
                                           'endpoint_inbound')
@@ -317,6 +375,8 @@ def target_endpoint_ips(parm):
                 for target_ip
                 in parm.region_data['OnPremResolverIps']
                 ]
+    else:
+        raise RuntimeError('Internal: kind should be AwsZones|OnPremZones')
 
 
 def create_template(event, context):
@@ -358,25 +418,19 @@ def create_template(event, context):
     parm.resources = dict()  # acts as a symlink to event[..]
     event['fragment']['Resources'] = parm.resources
 
-    if is_local_test(parm):  # TODO: remove
+    if parm.kind == 'OnPremZones':
+        if 'VpcDni' not in parm.region_data:
+            parm.region_data['VpcDni'] = set()
+
         parm.vpcs = [
-                'vpc-0123456789',
-                'vpc-1234567890'
+                export['Value']
+                for export
+                in utilities.boto3_call('list_exports')
+                if utilities.is_exported_vpc(export)
+                and export['Value'] not in parm.region_data['VpcDni']
                 ]
     else:
-        if parm.kind == 'OnPremZones':
-            if 'VpcDni' not in parm.region_data:
-                parm.region_data['VpcDni'] = set()
-
-            parm.vpcs = [
-                    export['Value']
-                    for export
-                    in utilities.boto3_call('list_exports')
-                    if utilities.is_exported_vpc(export)
-                    and export['Value'] not in parm.region_data['VpcDni']
-                    ]
-        else:
-            parm.vpcs = list()  # do not ever associate hosted zones
+        parm.vpcs = list()  # do not ever associate hosted zones
 
     for zone in clean_zone_names(parm.wex[parm.kind]):
         rule_id, rule_data = resource_rule(parm, zone)
@@ -389,7 +443,7 @@ def create_template(event, context):
                     resource_rule_association(parm, vpc_id, rule_id)
             parm.resources[rule_assoc_id] = rule_assoc_data
 
-    # zones are created and possibly associated to [some] local VPC(s)
+    load_existing_data(parm)
 
     # load existing infra; note some keys might be missing, like '1' here:
     # {
@@ -403,85 +457,50 @@ def create_template(event, context):
     #   ],
     #   ...
     # }
-    infra_pre = load_infra(parm)
+    infra_pre = join_resources(parm)
+    infra_post = pre_to_post(infra_pre, set(
+        [
+            resource['Properties']['DomainName']
+            for resource
+            in parm.resources.values()
+            if resource['Type'] == 'AWS::Route53Resolver::ResolverRule'
+            ]
+        ),
+        parm.max_rules)
 
-    # create target infra scuffolds:
-    #  same as infra_pre with no ResourceShare references
-    infra_post = dict(
-            [
-                (
-                    int(number),
-                    list()
-                    )
-                for number
-                in infra_pre
-                ]
-            )
+    principal_pre = join_principals(parm)
+    principal_post = pre_to_post(principal_pre, deepcopy(
+        parm.principals
+        ),
+        parm.max_rules)
 
-    # zones we are about to create; let's use half-baked template
-    zones = set(
-            [
-                resource['Properties']['DomainName']
-                for resource
-                in parm.resources.values()
-                if resource['Type'] == 'AWS::Route53Resolver::ResolverRule'
-                ]
-            )
-
-    # 1. Copy parts of an existing infra that is still relevant
-    for idx in infra_pre:
-        idx_int = int(idx)
-        for zone in sorted(infra_pre[idx]):
-            if zone in zones and \
-                    len(infra_post[idx_int]) < int(parm.max_rules):
-                infra_post[idx_int].append(zone)
-                zones.remove(zone)
-
-    serial = 0  # start scanning from zero
-    while True:
-        # 2a. Process remaining rules; append to existing shares
-        for zone in sorted(zones):
-            for idx in sorted(infra_post):
-                if len(infra_post[idx]) < int(parm.max_rules):
-                    infra_post[idx].append(zone)
-                    zones.remove(zone)
-                    break
-
-        if not zones:
-            break
-
-        # 2b. Create one blank share
-        if serial not in infra_post:
-            infra_post[serial] = list()
-        else:
-            serial += 1
-
-    # infra created, translate to resources
-
-    throttle_share = None
-    for serial, domain_names in infra_post.items():
-        share_id, share_data = \
-                resource_share(parm, serial, domain_names)
-        # add a twist, make 'em depend one from the other
-        if throttle_share is not None:
-            share_data['DependsOn'] = [
-                    throttle_share
-                    ]
-        throttle_share = share_id
-        parm.resources[share_id] = share_data
-
-        throttle_saa = None
-        for principal in parm.principals:
-            saa_id, saa_data = \
-                    resource_auto_associate(parm, share_id, principal)
-
-            if throttle_saa is not None:
-                saa_data['DependsOn'] = [
-                        throttle_saa
+    throttle = None  # chain resources together to avoid API throttling
+    for principal_slot, principal_list in principal_post.items():
+        for zone_slot, zone_list in infra_post.items():
+            share_id, share_data = \
+                    resource_share(parm,
+                                   zone_slot,
+                                   zone_list,
+                                   principal_slot,
+                                   principal_list)
+            # add a twist, make 'em depend one from the other
+            if throttle is not None:
+                share_data['DependsOn'] = [
+                        throttle
                         ]
-            throttle_saa = saa_id
+            throttle = share_id
+            parm.resources[share_id] = share_data
 
-            parm.resources[saa_id] = saa_data
+            for principal in principal_list:
+                saa_id, saa_data = \
+                        resource_auto_associate(parm, share_id, principal)
+
+                saa_data['DependsOn'] = [
+                        throttle
+                        ]
+                throttle = saa_id
+
+                parm.resources[saa_id] = saa_data
 
     return {
             'requestId': event['requestId'],

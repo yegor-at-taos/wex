@@ -66,6 +66,10 @@ boto3_map = {
             'ram',
             'resources',
             ),
+        'list_principals': (
+            'ram',
+            'principals',
+            ),
         'get_resource_shares': (
             'ram',
             'resourceShares',
