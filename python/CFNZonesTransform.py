@@ -150,6 +150,7 @@ def resource_share(parm, zone_slot, zone_list, principal_slot, principal_list):
                 'Type': 'AWS::RAM::ResourceShare',
                 'Properties': {
                     'Name': friendly_name,
+                    'AllowExternalPrincipals': 'false',
                     'ResourceArns': [
                         utilities.fn_get_att(resource_id, 'Arn')
                         for resource_id
