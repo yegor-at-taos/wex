@@ -101,6 +101,11 @@ def import_value(event, wex, resource, region=None):
     else:
         region = 'global'
 
+    # last minute change: don't use export, make up the value
+    if resource == 'auto_associate_function':
+        return f'arn:aws:lambda:{event["region"]}' \
+                f':{event["accountId"]}:function:CFNAutoAssociate'
+
     import_name = event['templateParameterValues']['Lob'] + \
         '-' + event['templateParameterValues']['Environment'] + \
         '-' + region + \
