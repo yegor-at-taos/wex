@@ -32,8 +32,6 @@
         "Regions": {
           "default": {
             "VpcDni": [
-              "vpc-0293da132bd06d378",
-              "vpc-0a6bf3cdb6cc82e1f"
             ]
           },
           "us-east-1": {

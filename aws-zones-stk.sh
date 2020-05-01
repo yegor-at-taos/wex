@@ -49,7 +49,9 @@ jq -n 'reduce inputs as $i ({}; . * $i)' \
 
 
 jq ".Mappings.Wex.Infoblox.Regions |=
-    with_entries(select(.key|test(\"default|$region\")))" \
+    with_entries(select(.key|test(\"default|$region\"))) |
+    .Mappings.Wex.Infoblox.Regions.default.VpcDni =
+    $(jq .VpcDni "$static_parameters")" \
         "$combined" > "$json"
 
 aws --profile "wex-$profile" --region "$region" \
