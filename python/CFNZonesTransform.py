@@ -139,7 +139,7 @@ def resource_share(parm, zone_slot, zone_list, principal_slot, principal_list):
                 parm.region_name,
                 parm.target_env,
                 parm.share_prefix,
-                principal_list,
+                principal_slot,
                 zone_slot,
                 ]
             )
